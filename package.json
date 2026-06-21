@@ -1,0 +1,13 @@
+{
+  "name": "pitchy-monorepo",
+  "version": "1.0.0",
+  "description": "Root workspace for Pitchy",
+  "scripts": {
+    "sync-env": "node -e \"const fs=require('fs'); fs.copyFileSync('.env', 'backend/.env'); fs.copyFileSync('.env', 'venture-wolf/.env'); console.log('✅ Synchronized root .env to backend and frontend!');\"",
+    "dev": "npm run sync-env && concurrently \"npm run dev --prefix backend\" \"npm start --prefix venture-wolf\"",
+    "install-all": "npm install && npm install --prefix backend && npm install --prefix venture-wolf"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

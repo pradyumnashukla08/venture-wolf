@@ -11,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.pradyumnashukla.wowfund",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -31,7 +32,14 @@
           "icon": "./assets/icon.png",
           "color": "#0F172A"
         }
-      ]
-    ]
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4895b3f7-acd7-4bf9-9822-6516480b311b"
+      }
+    },
+    "owner": "pradyumnashukla"
   }
 }
