@@ -8,6 +8,7 @@ import generateRoute from './routes/generate.js';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1); // Crucial for rate limiting behind Render proxy
 const PORT = Number(process.env.PORT || 8080);
 
 // Rate Limiter
