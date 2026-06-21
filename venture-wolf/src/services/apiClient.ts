@@ -2,8 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Use the environment variable for the API URL, falling back to a default local IP for physical devices
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.31.151:3000/api';
+// Production URL hardcoded to guarantee connectivity in standalone APK builds
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://venture-wolf-25me.onrender.com/api';
 
 export const apiClient = axios.create({
   baseURL: API_URL,
