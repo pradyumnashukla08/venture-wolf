@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Root workspace for Pitchy",
   "scripts": {
+    "build": "npm install --prefix backend",
+    "start": "npm start --prefix backend",
     "sync-env": "node -e \"const fs=require('fs'); fs.copyFileSync('.env', 'backend/.env'); fs.copyFileSync('.env', 'venture-wolf/.env'); console.log('✅ Synchronized root .env to backend and frontend!');\"",
     "dev": "npm run sync-env && concurrently \"npm run dev --prefix backend\" \"npm start --prefix venture-wolf\"",
     "install-all": "npm install && npm install --prefix backend && npm install --prefix venture-wolf"
