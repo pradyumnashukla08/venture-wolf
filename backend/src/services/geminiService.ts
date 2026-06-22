@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({
 
 export const evaluateStartupMultimodal = async (
   stage: string,
-  documents: { type: string; mimeType: string; base64: string }[],
+  documents: { type: string; mimeType: string; localPath: string }[],
   founderProfileContext?: string
 ) => {
   console.log(`Evaluating startup with Gemini at stage: ${stage} with ${documents.length} docs`);
@@ -105,60 +105,82 @@ Provide your evaluation as a strict JSON object with exactly the following schem
 }
 `;
 
-  // Prepare multimodal parts
-  const contents = [];
+  // Prepare multimodal parts and upload files to Google GenAI File API
+  const contents: any[] = [];
+  const uploadedFiles = [];
   
-  for (const doc of documents) {
-    contents.push(`\n--- Document Type: ${doc.type} ---\n`);
-    contents.push({
-      inlineData: {
-        data: doc.base64,
-        mimeType: doc.mimeType,
-      }
-    });
-  }
+  try {
+    for (const doc of documents) {
+      console.log(`Uploading ${doc.type} to Gemini File API from ${doc.localPath}...`);
+      const file = await ai.files.upload({
+        file: doc.localPath,
+        config: { mimeType: doc.mimeType },
+      });
+      uploadedFiles.push(file);
 
-  contents.push(promptText);
-
-  let attempt = 0;
-  const maxRetries = 3;
-  const baseDelay = 2000;
-
-  while (attempt <= maxRetries) {
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: contents,
-        config: {
-          temperature: 0.2,
-          responseMimeType: 'application/json',
+      contents.push(`\n--- Document Type: ${doc.type} ---\n`);
+      contents.push({
+        fileData: {
+          fileUri: file.uri,
+          mimeType: file.mimeType,
         }
       });
+    }
 
-      const contentText = response.text;
-      if (!contentText) {
-        throw new Error('Gemini returned empty response');
+    contents.push(promptText);
+
+    let attempt = 0;
+    const maxRetries = 3;
+    const baseDelay = 2000;
+
+    while (attempt <= maxRetries) {
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: contents,
+          config: {
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+          }
+        });
+
+        const contentText = response.text;
+        if (!contentText) {
+          throw new Error('Gemini returned empty response');
+        }
+
+        const sanitizedResponse = contentText.replace(/```json\n?|\n?```/g, '').trim();
+        const evaluation = JSON.parse(sanitizedResponse);
+        return evaluation;
+      } catch (error: any) {
+        attempt++;
+        console.error(`Error during Gemini evaluation (Attempt ${attempt}):`, error.message || error);
+        
+        const status = error.status || (error.error && error.error.code);
+        const isRetryable = status === 503 || status === 429 || !status;
+
+        if (attempt > maxRetries || !isRetryable) {
+          const err: any = new Error('Failed to evaluate startup via Gemini AI.');
+          err.status = status || 500;
+          throw err;
+        }
+
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        console.log(`Waiting ${delay}ms before retrying...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-
-      const sanitizedResponse = contentText.replace(/```json\n?|\n?```/g, '').trim();
-      const evaluation = JSON.parse(sanitizedResponse);
-      return evaluation;
-    } catch (error: any) {
-      attempt++;
-      console.error(`Error during Gemini evaluation (Attempt ${attempt}):`, error.message || error);
-      
-      const status = error.status || (error.error && error.error.code);
-      const isRetryable = status === 503 || status === 429 || !status;
-
-      if (attempt > maxRetries || !isRetryable) {
-        const err: any = new Error('Failed to evaluate startup via Gemini AI.');
-        err.status = status || 500;
-        throw err;
+    }
+  } finally {
+    // Clean up files from Gemini servers
+    for (const file of uploadedFiles) {
+      try {
+        if (file.name) {
+          await ai.files.delete({ name: file.name });
+          console.log(`Deleted file ${file.name} from Gemini servers.`);
+        }
+      } catch (e) {
+        console.error(`Failed to delete file ${file.name} from Gemini servers:`, e);
       }
-
-      const delay = baseDelay * Math.pow(2, attempt - 1);
-      console.log(`Waiting ${delay}ms before retrying...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 };

@@ -5,7 +5,10 @@ import { API_BASE_URL } from '../config/api';
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 120000, // Increased timeout to 2 minutes for Render cold starts + AI generation
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 
+    'Content-Type': 'application/json',
+    'Bypass-Tunnel-Reminder': 'true'
+  }
 });
 
 // Secure JWT Header Injection — reads the live Supabase session token

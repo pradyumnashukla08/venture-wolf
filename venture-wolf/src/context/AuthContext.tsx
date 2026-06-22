@@ -101,8 +101,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await AsyncStorage.removeItem('@is_data_imported');
   };
 
-  const apiFetch = async (url: string, options?: RequestInit): Promise<Response> => {
-    const response = await fetch(url, options);
+  const apiFetch = async (url: string, options: RequestInit = {}) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Bypass-Tunnel-Reminder': 'true',
+      ...options.headers,
+    } as Record<string, string>;
+
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
+    const response = await fetch(url, { ...options, headers });
     if (response.status === 401) {
       console.warn('Unauthorized request intercepted - signing out');
       await signOut();

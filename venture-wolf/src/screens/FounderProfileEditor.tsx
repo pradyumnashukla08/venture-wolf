@@ -49,7 +49,8 @@ const AISparkleInput = ({
         onChangeText(response.data.result);
       })
       .catch(error => {
-        console.error('AI Assist Error:', error);
+        console.error('AI Assist Error Object:', JSON.stringify(error, null, 2));
+        console.error('AI Assist Error Message:', error.message);
         onChangeText("AI Engine is currently unavailable. Please try again later.");
       })
       .finally(() => {

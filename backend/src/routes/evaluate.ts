@@ -9,6 +9,7 @@ import os from 'os';
 const router = Router();
 
 router.post('/', async (req: Request, res: Response): Promise<void> => {
+  let rawDocuments: { type: string; mimeType: string; localPath: string }[] = [];
   try {
     // Step 1: Auth Verification
     const authHeader = req.headers.authorization;
@@ -35,55 +36,54 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    let pitchDeckText = '';
-    let financialsText = '';
-    
     // Support legacy paths or new dynamic documents array
     const docsToProcess = documents || [];
     if (pitchDeckPath) docsToProcess.push({ type: 'Pitch Deck', path: pitchDeckPath });
     if (financialsPath) docsToProcess.push({ type: 'Financials', path: financialsPath });
 
-    const rawDocuments: { type: string; mimeType: string; base64: string }[] = [];
-
     for (const doc of docsToProcess) {
       // SECURITY FIX: Prevent IDOR / Path Traversal
       if (!doc.path || !doc.path.startsWith(`${startupId}/`)) {
-        console.warn(`Unauthorized or invalid document access attempt by ${startupId} for path: ${doc.path}`);
-        continue;
+        res.status(400).json({ error: 'Invalid document path' });
+        return;
       }
-
+      
       console.log(`Processing Document [${doc.type}]: ${doc.path}`);
       const { data, error } = await supabaseAdmin.storage.from('data_room').download(doc.path);
       
-      if (error) {
-        console.error(`Error downloading ${doc.type}:`, error.message);
+      if (error || !data) {
+        console.error(`Error downloading ${doc.type}:`, error?.message);
         continue;
       }
-      
-      if (data) {
-        try {
-          const buffer = await data.arrayBuffer();
-          const mimeType = data.type || doc.format || 'application/octet-stream';
-          
-          if (mimeType.includes('spreadsheetml') || mimeType.includes('excel') || doc.path.endsWith('.xlsx') || doc.path.endsWith('.xls')) {
-            console.log(`Converting Excel to CSV for: ${doc.path}`);
-            const csvString = await parseExcel(buffer);
-            rawDocuments.push({
-              type: doc.type,
-              mimeType: 'text/csv',
-              base64: Buffer.from(csvString).toString('base64')
-            });
-          } else {
-            const base64Data = Buffer.from(buffer).toString('base64');
-            rawDocuments.push({
-              type: doc.type,
-              mimeType: mimeType,
-              base64: base64Data
-            });
-          }
-        } catch (parseErr: any) {
-          console.error(`Parse Error for ${doc.type}:`, parseErr.message);
+
+      try {
+        const buffer = await data.arrayBuffer();
+        const mimeType = data.type || doc.format || 'application/octet-stream';
+        
+        // Save file to disk to prevent Out-Of-Memory (OOM) on Render
+        const tempFilePath = path.join(os.tmpdir(), `upload_${Date.now()}_${path.basename(doc.path)}`);
+
+        if (mimeType.includes('spreadsheetml') || mimeType.includes('excel') || doc.path.endsWith('.xlsx') || doc.path.endsWith('.xls')) {
+          console.log(`Converting Excel to CSV for: ${doc.path}`);
+          const csvString = await parseExcel(buffer);
+          // Write CSV string to temp file
+          await fs.promises.writeFile(tempFilePath + '.csv', csvString);
+          rawDocuments.push({
+            type: doc.type,
+            mimeType: 'text/csv',
+            localPath: tempFilePath + '.csv'
+          });
+        } else {
+          // Write standard file (e.g. PDF) to temp file
+          await fs.promises.writeFile(tempFilePath, Buffer.from(buffer));
+          rawDocuments.push({
+            type: doc.type,
+            mimeType: mimeType,
+            localPath: tempFilePath
+          });
         }
+      } catch (parseErr: any) {
+        console.error(`Parse Error for ${doc.type}:`, parseErr.message);
       }
     }
 
@@ -153,7 +153,18 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     console.error('Evaluation Route Error:', error);
     const status = error.status || 500;
     res.status(status).json({ error: 'Evaluation Failed', details: error.message });
-  }
+  } finally {
+      // Cleanup temporary files to free up disk space
+      for (const doc of rawDocuments) {
+        try {
+          if (fs.existsSync(doc.localPath)) {
+            await fs.promises.unlink(doc.localPath);
+          }
+        } catch (cleanupErr) {
+          console.error('Failed to delete temp file:', doc.localPath, cleanupErr);
+        }
+      }
+    }
 });
 
 router.post('/pitch', async (req: Request, res: Response): Promise<void> => {
