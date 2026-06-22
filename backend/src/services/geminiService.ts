@@ -75,7 +75,7 @@ Provide your evaluation as a strict JSON object with exactly the following schem
     "experiments": [
       {
         "title": "<string experiment title>",
-        "description": "<string description>",
+        "description": "<string description of a recommended GTM or product experiment based on their stage. Generate exactly 3 experiments if none are explicitly found in the deck.>",
         "status": "<'Active' | 'Upcoming'>"
       }
     ]
