@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL } from '../config/api';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -56,6 +57,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         extractRole(session);
         setLoading(false);
       });
+
+      // Silently ping the backend to wake it up from sleep (Render cold start mitigation)
+      fetch(`${API_BASE_URL.replace('/api', '/health')}`).catch(() => console.log('Ping failed, backend might be starting.'));
     };
     
     boot();

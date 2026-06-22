@@ -17,12 +17,7 @@ export const MarketOpportunityScreen = ({ navigation }: any) => {
     if (evaluationResult && evaluationResult.red_flags && evaluationResult.red_flags[idx]) {
       return `AI Risk Correlate: ${evaluationResult.red_flags[idx]}`;
     }
-    const defaults = [
-      'Vulnerable to rapid go-to-market execution.',
-      'Lacks deep integration capabilities needed for enterprise retention.',
-      'Pricing model is unsustainable against aggressive new entrants.'
-    ];
-    return defaults[idx];
+    return 'Pending AI competitor analysis. Upload pitch deck to generate insights.';
   };
 
   const [marketData, setMarketData] = useState({

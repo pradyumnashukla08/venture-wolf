@@ -1,31 +1,22 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
-
-// Production URL hardcoded to guarantee connectivity in standalone APK builds
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://venture-wolf-25me.onrender.com/api';
+import { supabase } from '../lib/supabase';
+import { API_BASE_URL } from '../config/api';
 
 export const apiClient = axios.create({
-  baseURL: API_URL,
-  timeout: 30000, // Increased timeout for AI generation tasks
+  baseURL: API_BASE_URL,
+  timeout: 120000, // Increased timeout to 2 minutes for Render cold starts + AI generation
   headers: { 'Content-Type': 'application/json' }
 });
 
-// Secure JWT Header Injection
+// Secure JWT Header Injection — reads the live Supabase session token
 apiClient.interceptors.request.use(async (config) => {
   try {
-    let token;
-    if (Platform.OS === 'web') {
-      token = window.localStorage.getItem('@auth_token');
-    } else {
-      token = await AsyncStorage.getItem('@auth_token');
-    }
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
     }
   } catch (error) {
-    console.error('Error fetching token for API request', error);
+    console.error('Error fetching Supabase session for API request', error);
   }
   return config;
 });
@@ -33,11 +24,11 @@ apiClient.interceptors.request.use(async (config) => {
 // Global Error Interceptor
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
       // Trigger global logout & redirect to LoginScreen
-      console.warn('Unauthorized request - redirecting to login');
-      AsyncStorage.removeItem('@auth_token');
+      console.warn('Unauthorized API response — signing out');
+      await supabase.auth.signOut();
     }
     return Promise.reject(error);
   }

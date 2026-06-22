@@ -28,6 +28,11 @@ app.use(express.json());
 app.use('/api/evaluate', aiLimiter, evaluateRoute);
 app.use('/api/generate', aiLimiter, generateRoute);
 
+// Root endpoint for Uptime monitors
+app.get('/', (req, res) => {
+  res.status(200).send('Venture Wolf API is online.');
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Venture Wolf Backend is running' });

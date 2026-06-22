@@ -4,7 +4,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { supabase } from '../lib/supabase';
-import { BASE_URL } from '../config/api';
+import { API_BASE_URL } from '../config/api';
 import { useProfile } from '../context/ProfileContext';
 import { useAuth } from '../context/AuthContext';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
@@ -76,7 +76,7 @@ export const DataRoomScreen = ({ navigation }: any) => {
           return;
         }
 
-        const response = await apiFetch(`${BASE_URL}/evaluate`, {
+        const response = await apiFetch(`${API_BASE_URL}/evaluate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -9,7 +9,7 @@ import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../lib/supabase';
-import { BASE_URL } from '../config/api';
+import { API_BASE_URL } from '../config/api';
 import { decode } from 'base64-arraybuffer';
 import { ActivityIndicator, Alert } from 'react-native';
 
@@ -195,7 +195,7 @@ export const PitchPracticeScreen = ({ navigation }: any) => {
       if (uploadError) throw uploadError;
 
       const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${BASE_URL}/evaluate/pitch`, {
+      const response = await fetch(`${API_BASE_URL}/evaluate/pitch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

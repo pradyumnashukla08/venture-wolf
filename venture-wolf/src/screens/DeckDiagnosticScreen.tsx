@@ -4,47 +4,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 
-const ISSUES = [
-  {
-    id: 1,
-    slide: 'Slide 4: Problem Statement',
-    title: 'Cognitive Overload (Too much text)',
-    severity: 'CRITICAL',
-    color: '#EF4444',
-    icon: 'warning',
-    desc: 'This slide contains 140+ words. The average VC spends 3.4 seconds per slide. You are forcing them to read instead of listen.',
-    fix: 'Reduce text by 50%. Use exactly 3 bullet points with bolded keywords. Move the rest to the appendix.'
-  },
-  {
-    id: 2,
-    slide: 'Slide 8: Market Opportunity',
-    title: 'Weak Top-Down Sizing',
-    severity: 'WARNING',
-    color: '#F59E0B',
-    icon: 'pie-chart',
-    desc: 'You stated the market is "$50 Billion" but didn\'t explain how you capture it. Top-down TAMs are highly discounted by seed investors.',
-    fix: 'Add a Bottom-Up calculation (Price × Highly Probable Customers). Prove you can reach $100M ARR within 5 years.'
-  },
-  {
-    id: 3,
-    slide: 'Slide 11: Go-To-Market',
-    title: 'Missing CAC/LTV Projections',
-    severity: 'CRITICAL',
-    color: '#EF4444',
-    icon: 'trending-down',
-    desc: 'You list "SEO and Paid Ads" as channels, but provide zero estimated acquisition costs. This signals you haven\'t run growth experiments.',
-    fix: 'Insert a table showing your current or projected CAC (Customer Acquisition Cost) vs LTV (Lifetime Value) ratio. Aim for 3:1.'
-  }
-];
-
 import { useProfile } from '../context/ProfileContext';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 
 export const DeckDiagnosticScreen = ({ navigation }: any) => {
-  const [selectedIssue, setSelectedIssue] = useState<typeof ISSUES[0] | null>(null);
   const { evaluationResult, processedDocIds } = useProfile();
   
-  const hasRequiredDocs = processedDocIds.includes('pitch_deck');
+  // Dynamically generate issues from AI red flags
+  const aiIssues = evaluationResult?.red_flags?.map((flag: string, index: number) => ({
+    id: index + 1,
+    slide: `AI Finding #${index + 1}`,
+    title: 'Identified Vulnerability',
+    severity: index === 0 ? 'CRITICAL' : 'WARNING',
+    color: index === 0 ? '#EF4444' : '#F59E0B',
+    icon: index === 0 ? 'warning' : 'alert-circle',
+    desc: flag,
+    fix: 'Address this finding directly in your pitch narrative and appendix data.'
+  })) || [];
+
+  const [selectedIssue, setSelectedIssue] = useState<typeof aiIssues[0] | null>(null);
+  
+  const hasRequiredDocs = processedDocIds?.includes('pitch_deck');
 
   if (!evaluationResult || !hasRequiredDocs) {
     return (
@@ -92,23 +72,25 @@ export const DeckDiagnosticScreen = ({ navigation }: any) => {
         <View style={styles.scoreLeft}>
           <Text style={styles.scoreTitle}>AI Readiness Score</Text>
           <View style={styles.scoreValueRow}>
-            <Text style={styles.scoreBig}>76</Text>
+            <Text style={styles.scoreBig}>{evaluationResult.overall_score || 'N/A'}</Text>
             <Text style={styles.scoreSmall}>/100</Text>
           </View>
-          <Text style={styles.scoreVerdict}>Sub-optimal for Series A</Text>
+          <Text style={styles.scoreVerdict}>
+            {evaluationResult.overall_score > 85 ? 'Strong Match' : evaluationResult.overall_score > 70 ? 'Sub-optimal for Series A' : 'Needs Significant Revision'}
+          </Text>
         </View>
         <View style={styles.scoreRight}>
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Slides Scanned</Text>
-            <Text style={styles.statValue}>12</Text>
+            <Text style={styles.statLabel}>Team Score</Text>
+            <Text style={styles.statValue}>{evaluationResult.team_score || 'N/A'}</Text>
           </View>
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Missing Sections</Text>
-            <Text style={[styles.statValue, { color: '#EF4444' }]}>3</Text>
+            <Text style={styles.statLabel}>Red Flags</Text>
+            <Text style={[styles.statValue, { color: '#EF4444' }]}>{evaluationResult.red_flags?.length || 0}</Text>
           </View>
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Data Clarity</Text>
-            <Text style={styles.statValue}>89%</Text>
+            <Text style={styles.statLabel}>Market Score</Text>
+            <Text style={styles.statValue}>{evaluationResult.market_score || 'N/A'}</Text>
           </View>
         </View>
       </View>
@@ -116,7 +98,7 @@ export const DeckDiagnosticScreen = ({ navigation }: any) => {
       {/* Issues Found */}
       <Text style={styles.sectionTitle}>Critical Vulnerabilities</Text>
       <View style={styles.issuesContainer}>
-        {ISSUES.map(issue => (
+        {aiIssues.map((issue: any) => (
           <TouchableOpacity 
             key={issue.id}
             activeOpacity={0.8}

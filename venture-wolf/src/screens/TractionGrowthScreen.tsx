@@ -69,11 +69,17 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
   const data = {
     stage: startupStage,
     waitlistCount: tm.waitlist_count ? tm.waitlist_count.toLocaleString() : 'N/A',
+    waitlistGrowth: tm.waitlist_growth ? `+${tm.waitlist_growth}%` : '',
     betaConversion: tm.waitlist_count && tm.beta_users ? `${Math.round((tm.beta_users / tm.waitlist_count) * 100)}%` : 'N/A',
+    betaConversionGrowth: tm.beta_conversion_growth ? `+${tm.beta_conversion_growth}%` : '',
     arr: formatCurrency(fm.arr),
+    arrGrowth: tm.arr_mom_growth ? `+${tm.arr_mom_growth}%` : '',
     retention: tm.nrr ? `${tm.nrr}%` : 'N/A',
+    retentionGrowth: tm.nrr_growth ? `+${tm.nrr_growth}%` : '',
     ltvcac: gtm.ltv_cac_ratio ? `${gtm.ltv_cac_ratio}x` : 'N/A',
+    ltvcacGrowth: gtm.ltv_cac_growth ? `+${gtm.ltv_cac_growth}` : '',
     burn: tm.burn_multiple ? `${tm.burn_multiple}x` : 'N/A',
+    burnGrowth: tm.burn_growth ? `${tm.burn_growth}` : '',
     chartPoints: generateSvgPath(tm.historical_revenue_6m)
   };
 
@@ -130,7 +136,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
                 <Text style={styles.statLabel}>WAITLIST SIGNUPS</Text>
                 <View style={styles.statValRow}>
                   <Text style={styles.statValue}>{data.waitlistCount}</Text>
-                  <Text style={styles.statIncrease}>+15%</Text>
+                  {!!data.waitlistGrowth && <Text style={styles.statIncrease}>{data.waitlistGrowth}</Text>}
                 </View>
               </View>
               <View style={[styles.statCard, theme.shadows.premiumLight, { width: halfWidth }]}>
@@ -140,7 +146,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
                 <Text style={styles.statLabel}>BETA CONVERSION</Text>
                 <View style={styles.statValRow}>
                   <Text style={styles.statValue}>{data.betaConversion}</Text>
-                  <Text style={styles.statIncrease}>+2%</Text>
+                  {!!data.betaConversionGrowth && <Text style={styles.statIncrease}>{data.betaConversionGrowth}</Text>}
                 </View>
               </View>
             </View>
@@ -158,7 +164,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.statValRow}>
                       <Text style={styles.dashboardValue}>{data.arr}</Text>
-                      <Text style={styles.statIncrease}>+18%</Text>
+                      {!!data.arrGrowth && <Text style={styles.statIncrease}>{data.arrGrowth}</Text>}
                     </View>
                   </View>
 
@@ -171,7 +177,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.statValRow}>
                       <Text style={styles.dashboardValue}>{data.retention}</Text>
-                      <Text style={styles.statIncrease}>+5%</Text>
+                      {!!data.retentionGrowth && <Text style={styles.statIncrease}>{data.retentionGrowth}</Text>}
                     </View>
                   </View>
 
@@ -184,7 +190,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.statValRow}>
                       <Text style={styles.dashboardValue}>{data.ltvcac}</Text>
-                      <Text style={styles.statIncrease}>+0.4</Text>
+                      {!!data.ltvcacGrowth && <Text style={styles.statIncrease}>{data.ltvcacGrowth}</Text>}
                     </View>
                   </View>
 
@@ -197,7 +203,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.statValRow}>
                       <Text style={styles.dashboardValue}>{data.burn}</Text>
-                      <Text style={[styles.statIncrease, { color: '#EF4444' }]}>-0.2</Text>
+                      {!!data.burnGrowth && <Text style={[styles.statIncrease, { color: '#EF4444' }]}>{data.burnGrowth}</Text>}
                     </View>
                   </View>
                 </View>

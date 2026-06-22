@@ -1,12 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
+import { useProfile } from '../context/ProfileContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const UnifiedEvaluationHub = ({ navigation }: any) => {
   const [activeTab, setActiveTab] = useState('Overview');
   const tabs = ['Overview', 'Deck', 'Financials', 'Team', 'Activity'];
+
+  const { evaluationResult, startupStage } = useProfile();
+  const [companyName, setCompanyName] = useState('Your Startup');
+  const [oneLiner, setOneLiner] = useState('Loading...');
+  
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const cache = await AsyncStorage.getItem('@draft_profile_cache');
+        if (cache) {
+          const profile = JSON.parse(cache);
+          if (profile.companyName) setCompanyName(profile.companyName);
+          if (profile.oneLiner) setOneLiner(profile.oneLiner);
+        }
+      } catch (e) {}
+    };
+    loadProfile();
+  }, []);
+
+  const metrics = evaluationResult?.financial_metrics || {};
+  const gtm = evaluationResult?.gtm_strategy || {};
+
+  const formatCurrency = (val: number | undefined) => {
+    if (!val) return 'N/A';
+    if (val >= 10000000) return `₹${(val / 10000000).toFixed(1)} Cr`;
+    if (val >= 100000) return `₹${(val / 100000).toFixed(1)} L`;
+    return `₹${val.toLocaleString()}`;
+  };
+
+  const getLogoLetters = (name: string) => name.substring(0, 2).toUpperCase() || 'ST';
 
   return (
     <View style={styles.fullScreen}>
@@ -24,11 +56,11 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
         {/* Profile Header */}
         <View style={styles.headerBlock}>
           <View style={styles.logoBox}>
-            <Text style={styles.logoText}>AV</Text>
+            <Text style={styles.logoText}>{getLogoLetters(companyName)}</Text>
           </View>
           <View style={styles.headerTextCol}>
-            <Text style={styles.startupName}>AvasPlot</Text>
-            <Text style={styles.oneLiner}>AI-driven proptech transactions.</Text>
+            <Text style={styles.startupName}>{companyName}</Text>
+            <Text style={styles.oneLiner}>{oneLiner}</Text>
           </View>
         </View>
 
@@ -54,7 +86,7 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
           <View style={{ flex: 1 }}>
             <Text style={styles.explainerTitle}>AI Investment Memo</Text>
             <Text style={styles.explainerText}>
-              AvasPlot is a high-velocity proptech platform that programmatically simplifies real estate transactions. They use proprietary ML models to underwrite risk 40% faster than legacy incumbents, showing strong early signs of product-market fit.
+              {evaluationResult?.stage_advice || 'AI evaluation pending. Upload your documents to generate the memo.'}
             </Text>
           </View>
         </View>
@@ -63,22 +95,22 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
         <View style={[styles.metricsBar, theme.borders.premiumDark]}>
           <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>STAGE</Text>
-            <Text style={styles.metricValue}>Seed</Text>
+            <Text style={styles.metricValue}>{startupStage}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>THE ASK</Text>
-            <Text style={[styles.metricValue, { color: theme.colors.secondary }]}>₹1.5 Cr</Text>
+            <Text style={styles.metricLabel}>ARR</Text>
+            <Text style={[styles.metricValue, { color: theme.colors.secondary }]}>{formatCurrency(metrics.arr)}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>CURR. MRR</Text>
-            <Text style={styles.metricValue}>₹12.4 L</Text>
+            <Text style={styles.metricValue}>{formatCurrency(metrics.mrr)}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>MOM GTH.</Text>
-            <Text style={[styles.metricValue, { color: '#10B981' }]}>24%</Text>
+            <Text style={styles.metricLabel}>LTV:CAC</Text>
+            <Text style={[styles.metricValue, { color: '#10B981' }]}>{gtm.ltv_cac_ratio ? `${gtm.ltv_cac_ratio}x` : 'N/A'}</Text>
           </View>
         </View>
 
@@ -90,8 +122,8 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
               <Ionicons name="checkmark-sharp" size={16} color="#10B981" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>Founder-Market Fit</Text>
-              <Text style={styles.itemDesc}>The CEO brings 8 years of deep domain expertise as a lead underwriter at HDFC.</Text>
+              <Text style={styles.itemTitle}>Market Potential</Text>
+              <Text style={styles.itemDesc}>Score: {evaluationResult?.market_score || 'N/A'}/100. The total addressable market and the team's ability to capture it appears strong.</Text>
             </View>
           </View>
           <View style={styles.listItem}>
@@ -99,8 +131,8 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
               <Ionicons name="checkmark-sharp" size={16} color="#10B981" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>Capital Efficiency</Text>
-              <Text style={styles.itemDesc}>Achieved ₹12.4L MRR having burned a total of only ₹18L to date.</Text>
+              <Text style={styles.itemTitle}>Execution & Team</Text>
+              <Text style={styles.itemDesc}>Execution Score: {evaluationResult?.execution_score || 'N/A'}/100. Team Score: {evaluationResult?.team_score || 'N/A'}/100.</Text>
             </View>
           </View>
         </View>
@@ -108,15 +140,21 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
         {/* Risks */}
         <Text style={styles.sectionTitle}>Critical Risks</Text>
         <View style={styles.listContainer}>
-          <View style={styles.listItem}>
-            <View style={styles.riskIconBox}>
-              <Ionicons name="warning-outline" size={16} color="#EF4444" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>Regulatory Exposure</Text>
-              <Text style={styles.itemDesc}>RERA compliance framework is currently undocumented in their data room. High risk until clarified.</Text>
-            </View>
-          </View>
+          {evaluationResult?.red_flags?.length > 0 ? (
+            evaluationResult.red_flags.map((flag: string, idx: number) => (
+              <View key={idx} style={styles.listItem}>
+                <View style={styles.riskIconBox}>
+                  <Ionicons name="warning-outline" size={16} color="#EF4444" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemTitle}>AI Finding #{idx + 1}</Text>
+                  <Text style={styles.itemDesc}>{flag}</Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={{ color: '#94A3B8', fontStyle: 'italic', paddingLeft: 16 }}>No critical risks identified or AI evaluation pending.</Text>
+          )}
         </View>
 
       </ResponsiveScrollContainer>
