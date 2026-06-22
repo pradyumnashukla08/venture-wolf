@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, useWindowDimensio
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
+import { AIDisclaimer } from '../components/AIDisclaimer';
 import { useProfile } from '../context/ProfileContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -90,6 +91,8 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
             </Text>
           </View>
         </View>
+
+        <AIDisclaimer dark />
 
         {/* Metrics Bar */}
         <View style={[styles.metricsBar, theme.borders.premiumDark]}>

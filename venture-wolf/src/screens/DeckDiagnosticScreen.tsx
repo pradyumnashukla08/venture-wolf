@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, Modal, Pressable } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
+import { AIDisclaimer } from '../components/AIDisclaimer';
 
 import { useProfile } from '../context/ProfileContext';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
@@ -66,6 +67,8 @@ export const DeckDiagnosticScreen = ({ navigation }: any) => {
           </Text>
         </View>
       </View>
+
+      <AIDisclaimer />
 
       {/* Score Header */}
       <View style={[styles.scoreCard, theme.shadows.premiumLight]}>

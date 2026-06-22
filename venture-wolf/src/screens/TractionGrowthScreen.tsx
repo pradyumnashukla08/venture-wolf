@@ -6,6 +6,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
+import { AIDisclaimer } from '../components/AIDisclaimer';
 
 // Error Boundary for SVGs
 class SvgErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
@@ -124,6 +125,8 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
           </Text>
         </View>
       </View>
+
+      <AIDisclaimer />
 
       <>
           {isEarlyStage ? (

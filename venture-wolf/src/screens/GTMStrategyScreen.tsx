@@ -7,6 +7,7 @@ import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import { useProfile } from '../context/ProfileContext';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
+import { AIDisclaimer } from '../components/AIDisclaimer';
 
 export const GTMStrategyScreen = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet } = useResponsiveLayout();
@@ -52,6 +53,8 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
           <Text style={styles.pageTitle}>GTM Command Center</Text>
           <View style={{ width: 44 }} />
         </View>
+
+        <AIDisclaimer />
 
         {/* 2x2 Unit Economics Grid */}
         <View style={styles.gridSection}>

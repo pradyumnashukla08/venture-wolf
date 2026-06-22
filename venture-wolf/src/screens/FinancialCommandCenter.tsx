@@ -6,6 +6,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { theme } from '../constants/theme';
 import { FinancialForecastTable } from '../components/FinancialForecastTable';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
+import { AIDisclaimer } from '../components/AIDisclaimer';
 
 import { useProfile } from '../context/ProfileContext';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
@@ -80,6 +81,8 @@ export const FinancialCommandCenter = ({ navigation }: any) => {
           </Text>
         </View>
       </View>
+
+      <AIDisclaimer />
 
       {/* SECTION 1: Unified Metrics Dashboard */}
       <View style={[styles.dashboardCard, theme.shadows.premiumLight]}>
