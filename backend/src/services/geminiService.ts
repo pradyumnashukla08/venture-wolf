@@ -101,6 +101,17 @@ Provide your evaluation as a strict JSON object with exactly the following schem
     "nrr": <number e.g. 115 representing 115%>,
     "burn_multiple": <number e.g. 1.4>,
     "historical_revenue_6m": [<array of exactly 6 numbers representing revenue for the last 6 months>]
+  },
+  "market_landscape": { // If no clear market size or competitors are provided, synthesize a highly realistic, specific TAM/SAM/SOM and identify 3 real-world competitors and their critical vulnerabilities.
+    "tam": "<string formatted currency e.g. $10B>",
+    "sam": "<string formatted currency e.g. $2B>",
+    "som": "<string formatted currency e.g. $150M>",
+    "competitors": [
+      {
+        "name": "<string actual real-world competitor name>",
+        "weakness": "<string detailed weakness or vulnerability of this competitor that the startup can exploit>"
+      }
+    ]
   }
 }
 `;

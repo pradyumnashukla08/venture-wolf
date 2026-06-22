@@ -6,26 +6,25 @@ import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import { useProfile } from '../context/ProfileContext';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
+import { AIDisclaimer } from '../components/AIDisclaimer';
 
 export const MarketOpportunityScreen = ({ navigation }: any) => {
   const { evaluationResult, processedDocIds } = useProfile();
   
   const hasRequiredDocs = processedDocIds.includes('pitch_deck');
 
-  // Create a dynamic weakness based on AI feedback or default
-  const getWeakness = (idx: number) => {
-    if (evaluationResult && evaluationResult.red_flags && evaluationResult.red_flags[idx]) {
-      return `AI Risk Correlate: ${evaluationResult.red_flags[idx]}`;
-    }
-    return 'Pending AI competitor analysis. Upload pitch deck to generate insights.';
-  };
+  // Fallback to AI market landscape or use cache
+  const aiMarket = evaluationResult?.market_landscape || {};
+  const aiCompetitors = aiMarket.competitors || [];
 
   const [marketData, setMarketData] = useState({
-    tam: '₹0', sam: '₹0', som: '₹0',
+    tam: aiMarket.tam || '₹0',
+    sam: aiMarket.sam || '₹0',
+    som: aiMarket.som || '₹0',
     competitors: [
-      { name: 'Competitor 1', weakness: getWeakness(0) },
-      { name: 'Competitor 2', weakness: getWeakness(1) },
-      { name: 'Competitor 3', weakness: getWeakness(2) }
+      { name: aiCompetitors[0]?.name || 'Competitor 1', weakness: aiCompetitors[0]?.weakness || 'Pending AI competitor analysis.' },
+      { name: aiCompetitors[1]?.name || 'Competitor 2', weakness: aiCompetitors[1]?.weakness || 'Pending AI competitor analysis.' },
+      { name: aiCompetitors[2]?.name || 'Competitor 3', weakness: aiCompetitors[2]?.weakness || 'Pending AI competitor analysis.' }
     ]
   });
 
@@ -36,13 +35,13 @@ export const MarketOpportunityScreen = ({ navigation }: any) => {
         if (cache) {
           const profile = JSON.parse(cache);
           setMarketData(prev => ({
-            tam: profile.tam || prev.tam,
-            sam: profile.sam || prev.sam,
-            som: profile.som || prev.som,
+            tam: profile.tam || aiMarket.tam || prev.tam,
+            sam: profile.sam || aiMarket.sam || prev.sam,
+            som: profile.som || aiMarket.som || prev.som,
             competitors: [
-              { name: profile.competitor1 || 'Competitor 1', weakness: getWeakness(0) },
-              { name: profile.competitor2 || 'Competitor 2', weakness: getWeakness(1) },
-              { name: profile.competitor3 || 'Competitor 3', weakness: getWeakness(2) }
+              { name: profile.competitor1 || aiCompetitors[0]?.name || 'Competitor 1', weakness: aiCompetitors[0]?.weakness || 'Pending AI competitor analysis.' },
+              { name: profile.competitor2 || aiCompetitors[1]?.name || 'Competitor 2', weakness: aiCompetitors[1]?.weakness || 'Pending AI competitor analysis.' },
+              { name: profile.competitor3 || aiCompetitors[2]?.name || 'Competitor 3', weakness: aiCompetitors[2]?.weakness || 'Pending AI competitor analysis.' }
             ]
           }));
         }
@@ -94,6 +93,8 @@ export const MarketOpportunityScreen = ({ navigation }: any) => {
           </Text>
         </View>
       </View>
+
+      <AIDisclaimer />
 
       {/* Market Metrics Card */}
       <View style={[styles.metricsContainer, theme.shadows.premiumLight]}>

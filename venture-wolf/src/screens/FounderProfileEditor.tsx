@@ -10,6 +10,7 @@ import { useProfile } from '../context/ProfileContext';
 import { apiClient } from '../services/apiClient';
 import { supabase } from '../lib/supabase';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
+import { AIDisclaimer } from '../components/AIDisclaimer';
 
 const AISparkleInput = ({ 
   label, 
@@ -832,6 +833,8 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                 </View>
               </>
             )}
+
+            <AIDisclaimer />
           </View>
         </ScrollView>
 
