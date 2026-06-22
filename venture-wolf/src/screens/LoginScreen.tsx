@@ -23,7 +23,7 @@ export const LoginScreen = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -31,8 +31,8 @@ export const LoginScreen = () => {
     if (error) {
       Alert.alert('Sign In Failed', error.message);
     } else {
-      // Explicitly redirect to profile upon successful sign in
-      navigation.navigate('Profile');
+      // Manually push to the onboarding funnel now that App.tsx doesn't dynamically swap stacks
+      navigation.replace('FounderProfile');
     }
     setLoading(false);
   };
@@ -60,78 +60,59 @@ export const LoginScreen = () => {
     try {
       setLoading(true);
       
-      // Use expo-linking to generate a robust deep link URI that works seamlessly 
-      // in both Expo Go (exp://.../--/auth) and Production (venturewolf://auth)
-      const redirectUrl = Linking.createURL('auth');
-      console.log('=============================================');
-      console.log('EXACT REDIRECT URL FOR SUPABASE:');
-      console.log(redirectUrl);
-      console.log('=============================================');
-      
+      // 1. Create a bulletproof redirect URL that works in both Expo Go and native APKs
+      const redirectUrl = Linking.createURL('/auth/callback');
+
+      // 2. Ask Supabase for the Google Login URL, but STRICTLY DO NOT open it automatically
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
-          queryParams: {
-            prompt: 'select_account'
-          }
+          skipBrowserRedirect: true, // This prevents the catastrophic Expo Go reload crash
+          queryParams: { prompt: 'select_account' }
         },
       });
 
       if (error) throw error;
-      
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-        
-        if (result.type === 'success' && result.url) {
-          // Bulletproof manual extraction of tokens, bypassing Linking.parse quirks
-          const getParam = (name: string) => {
-            const match = result.url.match(new RegExp(`[#?&]${name}=([^&]+)`));
-            return match ? decodeURIComponent(match[1]) : null;
+      if (!data?.url) throw new Error('Failed to generate OAuth URL');
+
+      // 3. Open the browser sandbox manually
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      // 4. Safely intercept the return URL and manually extract the tokens
+      if (result.type === 'success' && result.url) {
+        // Helper function to extract fragments (#access_token=...) safely
+        const extractParams = (url: string) => {
+          const params = new URLSearchParams(url.split('#')[1] || url.split('?')[1]);
+          return {
+            access_token: params.get('access_token'),
+            refresh_token: params.get('refresh_token'),
           };
+        };
 
-          const access_token = getParam('access_token');
-          const refresh_token = getParam('refresh_token');
-          const code = getParam('code');
-          const error = getParam('error');
-          const error_description = getParam('error_description');
+        const { access_token, refresh_token } = extractParams(result.url);
 
-          if (error || error_description) {
-            throw new Error(error_description || error || 'Unknown OAuth Error');
-          }
-
-          if (access_token && refresh_token) {
-            const { error: sessionError } = await supabase.auth.setSession({ 
-              access_token, 
-              refresh_token 
-            });
-            if (sessionError) throw sessionError;
-            navigation.navigate('Profile');
-          } else if (code) {
-            const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
-            if (sessionError) throw sessionError;
-            navigation.navigate('Profile');
-          } else {
-            throw new Error('No authentication token found in URL: ' + result.url);
-          }
+        // 5. Forcefully inject the session into Supabase local storage
+        if (access_token && refresh_token) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
+          if (sessionError) throw sessionError;
+          navigation.replace('FounderProfile');
+        } else {
+          throw new Error('Could not extract access_token from callback URL');
         }
       }
     } catch (err: any) {
-      console.error('Google Sign In Error:', err);
-      const msg = err.message || 'An unexpected error occurred';
-      if (msg.includes('URL not allowed') || msg.includes('redirect_uri_mismatch') || msg.toLowerCase().includes('redirect')) {
-        Alert.alert(
-          'Server Configuration Required',
-          `Your Supabase project is rejecting the redirect.\n\nPlease add this exact URL to your Supabase Auth -> URL Configuration settings:\n\n${Linking.createURL('auth')}`
-        );
-      } else {
-        Alert.alert('Google Sign In Failed', msg);
-      }
+      console.error('Google Sign-In Error:', err);
+      Alert.alert('Google Sign In Failed', err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
+
+
 
   return (
     <KeyboardAvoidingView 

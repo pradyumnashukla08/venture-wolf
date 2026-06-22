@@ -2,8 +2,10 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 
 export const InvestorHomeFeed = ({ navigation }: any) => {
+  const { isAuthenticated, setRoleOffline } = useAuth();
   return (
     <View style={styles.container}>
       <View style={styles.topNavRow}>
@@ -23,8 +25,14 @@ export const InvestorHomeFeed = ({ navigation }: any) => {
         </Text>
         {/* If the user is stuck, give them a way out to go back or sign out if no back nav */}
         {!navigation.canGoBack?.() && (
-          <TouchableOpacity style={styles.goBackAltBtn} onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.goBackAltText}>Go Back</Text>
+          <TouchableOpacity style={styles.goBackAltBtn} onPress={() => {
+            if (!isAuthenticated && setRoleOffline) {
+              setRoleOffline('founder');
+            } else {
+              navigation.navigate('Login');
+            }
+          }}>
+            <Text style={styles.goBackAltText}>{!isAuthenticated ? 'Switch to Founder View' : 'Go Back'}</Text>
           </TouchableOpacity>
         )}
       </View>

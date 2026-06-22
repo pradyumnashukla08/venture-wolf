@@ -15,8 +15,8 @@ import { registerForPushNotificationsAsync, scheduleDailyStreakReminder } from '
 
 export const FounderHome = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet, halfWidth } = useResponsiveLayout();
-  const { profileImage, evaluationResult, streakCount, dailyTaskCompletedDate, setDailyTaskCompletedDate } = useProfile();
-  const { session, isAuthenticated, isProfileComplete } = useAuth();
+  const { profileImage, evaluationResult, streakCount, dailyTaskCompletedDate, setDailyTaskCompletedDate, uploadedDocs } = useProfile();
+  const { session, isAuthenticated, isProfileComplete, setRoleOffline } = useAuth();
   
   const userName = session?.user?.user_metadata?.full_name || 'Founder';
   const firstName = userName.split(' ')[0];
@@ -40,18 +40,37 @@ export const FounderHome = ({ navigation }: any) => {
 
   const handleEcosystemClick = (route: string) => {
     if (route === 'InvestorTabs') {
-      navigation.navigate('InvestorTabs');
+      if (!isAuthenticated && setRoleOffline) {
+        setRoleOffline('investor');
+      } else {
+        navigation.navigate('InvestorTabs');
+      }
       return;
     }
+
     if (!isAuthenticated) {
       setPendingRoute(route);
       setShowAuthModal(true);
       return;
     }
-    if (!isProfileComplete) {
+
+    if (!isProfileComplete && route !== 'Profile') {
       navigation.navigate('Profile');
       return;
     }
+
+    const hasDocs = uploadedDocs && uploadedDocs.length > 0;
+    if (!hasDocs && route !== 'ImportCenter') {
+      navigation.navigate('ImportCenter');
+      return;
+    }
+
+    const hasEval = !!evaluationResult;
+    if (hasDocs && !hasEval && route !== 'DeckAnalysis') {
+      navigation.navigate('DeckAnalysis');
+      return;
+    }
+
     navigation.navigate(route);
   };
 

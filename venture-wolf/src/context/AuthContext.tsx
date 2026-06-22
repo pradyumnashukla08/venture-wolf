@@ -4,6 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config/api';
+import * as Linking from 'expo-linking';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -64,14 +65,65 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     boot();
 
+    // 1. Hardened Global Deep Link Listener
+    const handleDeepLink = async (event: Linking.EventType) => {
+      try {
+        const url = event.url;
+        console.log('[AuthContext] Intercepted deep link:', url);
+        
+        if (url.includes('access_token') || url.includes('refresh_token') || url.includes('code=')) {
+          console.log('[AuthContext] URL contains session tokens. Attempting to parse...');
+          
+          const getParam = (name: string) => {
+            const match = url.match(new RegExp(`[#?&]${name}=([^&]+)`));
+            return match ? decodeURIComponent(match[1]) : null;
+          };
+
+          const access_token = getParam('access_token');
+          const refresh_token = getParam('refresh_token');
+          const code = getParam('code');
+          
+          if (access_token && refresh_token) {
+            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (error) {
+              console.error('[AuthContext] Supabase failed to set session from URL tokens:', error.message);
+            } else {
+              console.log('[AuthContext] Successfully established session from URL!');
+            }
+          } else if (code) {
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) {
+              console.error('[AuthContext] Supabase failed to exchange code from URL:', error.message);
+            } else {
+              console.log('[AuthContext] Successfully exchanged code for session from URL!');
+            }
+          }
+        }
+      } catch (err: any) {
+        // Prevent fatal JS thread crash by catching all exceptions
+        console.error('[AuthContext] Critical failure in deep link listener:', err?.message || err);
+      }
+    };
+
+    // Subscribe to incoming links while app is active
+    const linkSubscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Catch cold boot deep links
+    Linking.getInitialURL().then(url => {
+      if (url) handleDeepLink({ url });
+    }).catch(err => console.error('[AuthContext] Failed to get initial URL:', err));
+
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setIsAuthenticated(!!session);
       extractRole(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      authSubscription.unsubscribe();
+      linkSubscription.remove();
+    };
   }, []);
 
   // Temporary mock login for development if needed

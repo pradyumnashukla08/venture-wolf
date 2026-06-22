@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from './src/constants/theme';
 import { ProfileProvider, useProfile } from './src/context/ProfileContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import * as Linking from 'expo-linking';
 
 // Screen Imports
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -128,7 +129,7 @@ function InvestorTabs() {
 }
 
 const linking = {
-  prefixes: ['venturewolf://', 'https://*.venturewolf.com'],
+  prefixes: [Linking.createURL('/'), 'venturewolf://', 'https://*.venturewolf.com'],
   config: {
     screens: {
       Login: 'login',
@@ -150,18 +151,17 @@ function RootStack() {
         contentStyle: { backgroundColor: theme.colors.darkBackground },
       }}
     >
-      {/* Dynamic Tab Root */}
-      {isAuthenticated && userRole === 'investor' ? (
+      {/* Dynamic Tab Root (Defaulting to FounderTabs if unauthenticated/null) */}
+      {userRole === 'investor' ? (
         <Stack.Screen name="InvestorTabs" component={InvestorTabs} options={{ headerShown: false }} />
       ) : (
         <Stack.Screen name="FounderTabs" component={FounderTabs} options={{ headerShown: false }} />
       )}
-      
-      {/* Authentication Stack */}
-      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+
+      {/* Authentication Stack (Available as modals/screens anywhere) */}
+      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
-          
+      <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false, presentation: 'modal' }} />
       {/* Detail/Stack Screens registered so they can be navigated to from anywhere */}
       <Stack.Screen name="MarketOpportunity" component={MarketOpportunityScreen} options={{ title: 'Market Opportunity', headerShown: false }} />
       <Stack.Screen name="Traction" component={TractionGrowthScreen} options={{ title: 'Traction', headerShown: false }} />

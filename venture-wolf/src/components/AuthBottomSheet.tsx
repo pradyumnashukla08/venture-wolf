@@ -21,12 +21,11 @@ export const AuthBottomSheet = ({ visible, onClose, onLoginSuccess }: { visible:
   const [loadingGoogle, setLoadingGoogle] = React.useState(false);
 
   if (!visible) return null;
-
   const handleGoogleSignIn = async () => {
     try {
       setLoadingGoogle(true);
       
-      const redirectUrl = Linking.createURL('auth');
+      const redirectUrl = Linking.createURL('/auth/callback');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -39,42 +38,31 @@ export const AuthBottomSheet = ({ visible, onClose, onLoginSuccess }: { visible:
       });
 
       if (error) throw error;
+      if (!data?.url) throw new Error('Failed to generate OAuth URL');
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
       
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-        
-        if (result.type === 'success' && result.url) {
-          const getParam = (name: string) => {
-            const match = result.url.match(new RegExp(`[#?&]${name}=([^&]+)`));
-            return match ? decodeURIComponent(match[1]) : null;
+      if (result.type === 'success' && result.url) {
+        const extractParams = (url: string) => {
+          const params = new URLSearchParams(url.split('#')[1] || url.split('?')[1]);
+          return {
+            access_token: params.get('access_token'),
+            refresh_token: params.get('refresh_token'),
           };
+        };
 
-          const access_token = getParam('access_token');
-          const refresh_token = getParam('refresh_token');
-          const code = getParam('code');
-          const urlError = getParam('error');
-          const error_description = getParam('error_description');
+        const { access_token, refresh_token } = extractParams(result.url);
 
-          if (urlError || error_description) {
-            throw new Error(error_description || urlError || 'Unknown OAuth Error');
-          }
-
-          if (access_token && refresh_token) {
-            const { error: sessionError } = await supabase.auth.setSession({ 
-              access_token, 
-              refresh_token 
-            });
-            if (sessionError) throw sessionError;
-            onClose();
-            navigation.navigate('Profile');
-          } else if (code) {
-            const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
-            if (sessionError) throw sessionError;
-            onClose();
-            navigation.navigate('Profile');
-          } else {
-            throw new Error('No authentication token found in URL: ' + result.url);
-          }
+        if (access_token && refresh_token) {
+          const { error: sessionError } = await supabase.auth.setSession({ 
+            access_token, 
+            refresh_token 
+          });
+          if (sessionError) throw sessionError;
+          onClose();
+          navigation.replace('FounderProfile');
+        } else {
+          throw new Error('Could not extract access_token from callback URL');
         }
       }
     } catch (err: any) {

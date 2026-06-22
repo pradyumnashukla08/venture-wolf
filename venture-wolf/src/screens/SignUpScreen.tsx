@@ -45,17 +45,28 @@ export const SignUpScreen = () => {
     if (error) {
       Alert.alert('Sign Up Failed', error.message);
     } else {
-      // If email confirmations are disabled or auto-confirmed, there will be an active session immediately.
-      // If they are enabled, the user will be asked to check their email.
       if (data.session) {
-        // Force the offline role so AuthContext can dynamically route immediately
         if (setRoleOffline) {
           await setRoleOffline(role);
         }
-        navigation.navigate('Profile');
+        navigation.replace('FounderProfile');
       } else {
-        Alert.alert('Success', 'Check your email inbox to verify your account!');
-        navigation.navigate('Login');
+        // Fallback: try to manually sign in just in case the session wasn't auto-returned
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        
+        if (signInData?.session) {
+          if (setRoleOffline) {
+            await setRoleOffline(role);
+          }
+          navigation.replace('FounderProfile');
+        } else {
+          // If we reach here, Supabase is strictly enforcing Email Confirmations
+          Alert.alert(
+            'Verification Required', 
+            'Your account was created successfully, but your Supabase project requires Email Confirmation.\n\nPlease check your email to verify your account, or turn off "Confirm email" in your Supabase dashboard to allow instant login.'
+          );
+          navigation.replace('Login');
+        }
       }
     }
     setLoading(false);

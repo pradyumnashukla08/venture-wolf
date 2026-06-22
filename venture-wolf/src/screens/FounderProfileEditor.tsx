@@ -170,7 +170,6 @@ export const FounderProfileEditor = ({ navigation }: any) => {
         const cached = window.localStorage.getItem('@draft_profile_cache');
         if (cached && isMounted.current) {
           const parsed = JSON.parse(cached);
-          // Merge cached data with session metadata if empty
           if (!parsed.fullName && session?.user?.user_metadata?.full_name) {
             parsed.fullName = session.user.user_metadata.full_name;
           }
@@ -182,13 +181,14 @@ export const FounderProfileEditor = ({ navigation }: any) => {
           }
           setFormData(parsed);
           if (parsed.stage) setStartupStage(parsed.stage);
-        } else if (session?.user) {
-          setFormData(prev => ({ 
-            ...prev, 
-            fullName: session.user.user_metadata?.full_name || prev.fullName,
-            email: session.user.email || prev.email,
-            profileImage: session.user.user_metadata?.avatar_url || prev.profileImage
-          }));
+        } else if (session?.user && isMounted.current) {
+          setFormData(prev => {
+            const newName = session.user.user_metadata?.full_name || prev.fullName;
+            const newEmail = session.user.email || prev.email;
+            const newAvatar = session.user.user_metadata?.avatar_url || prev.profileImage;
+            if (prev.fullName === newName && prev.email === newEmail && prev.profileImage === newAvatar) return prev;
+            return { ...prev, fullName: newName, email: newEmail, profileImage: newAvatar };
+          });
         }
       } catch (e) {}
     } else {
@@ -208,12 +208,13 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             setFormData(parsed);
             if (parsed.stage) setStartupStage(parsed.stage);
           } else if (session?.user && isMounted.current) {
-            setFormData(prev => ({ 
-              ...prev, 
-              fullName: session.user.user_metadata?.full_name || prev.fullName,
-              email: session.user.email || prev.email,
-              profileImage: session.user.user_metadata?.avatar_url || prev.profileImage
-            }));
+            setFormData(prev => {
+              const newName = session.user.user_metadata?.full_name || prev.fullName;
+              const newEmail = session.user.email || prev.email;
+              const newAvatar = session.user.user_metadata?.avatar_url || prev.profileImage;
+              if (prev.fullName === newName && prev.email === newEmail && prev.profileImage === newAvatar) return prev;
+              return { ...prev, fullName: newName, email: newEmail, profileImage: newAvatar };
+            });
           }
         })
         .catch(() => {}); // Silently fail if native module is null
@@ -331,7 +332,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
               activeOpacity={0.7} 
               onPress={async () => {
                 await signOut();
-                navigation.navigate('Home');
+                navigation.reset({ index: 0, routes: [{ name: 'FounderTabs' }] });
               }} 
               style={{ marginTop: 16, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' }}
             >
