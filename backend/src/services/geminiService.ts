@@ -80,7 +80,7 @@ Provide your evaluation as a strict JSON object with exactly the following schem
       }
     ]
   },
-  "financial_forecast": {
+  "financial_forecast": { // If no forecast is explicitly in the deck, you MUST generate a realistic 5-year forecast (in local currency or USD) based on their current stage, industry benchmarks, and reasonable MoM growth. Do NOT return 0s.
     "revenue": {
       "Subscription Revenue": { "year1": <number>, "year2": <number>, "year3": <number>, "year4": <number>, "year5": <number> },
       "Implementation Revenue": { "year1": <number>, "year2": <number>, "year3": <number>, "year4": <number>, "year5": <number> }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { theme } from '../constants/theme';
@@ -151,10 +152,17 @@ export const FinancialCommandCenter = ({ navigation }: any) => {
             <Text style={styles.sliderLabel}>NEW HIRES (12 MO)</Text>
             <Text style={styles.sliderValue}>{hires} EMPLOYEES</Text>
           </View>
-          <View style={styles.track}>
-            <View style={[styles.fill, { width: `${(hires / 20) * 100}%` }]} />
-            <View style={[styles.thumb, { left: `${(hires / 20) * 100}%` }, theme.shadows.premiumLight]} />
-          </View>
+          <Slider
+            style={{ width: '100%', height: 40 }}
+            minimumValue={0}
+            maximumValue={20}
+            step={1}
+            value={hires}
+            onValueChange={setHires}
+            minimumTrackTintColor={theme.colors.primary}
+            maximumTrackTintColor="#F1F5F9"
+            thumbTintColor="#FFFFFF"
+          />
           <View style={styles.sliderLimits}>
             <Text style={styles.limitText}>0</Text>
             <Text style={styles.limitText}>20</Text>
@@ -167,10 +175,17 @@ export const FinancialCommandCenter = ({ navigation }: any) => {
             <Text style={styles.sliderLabel}>TARGET GROWTH RATE</Text>
             <Text style={styles.sliderValue}>{growth}% MoM</Text>
           </View>
-          <View style={styles.track}>
-            <View style={[styles.fill, { width: `${((growth - 10) / 40) * 100}%` }]} />
-            <View style={[styles.thumb, { left: `${((growth - 10) / 40) * 100}%` }, theme.shadows.premiumLight]} />
-          </View>
+          <Slider
+            style={{ width: '100%', height: 40 }}
+            minimumValue={10}
+            maximumValue={50}
+            step={1}
+            value={growth}
+            onValueChange={setGrowth}
+            minimumTrackTintColor={theme.colors.primary}
+            maximumTrackTintColor="#F1F5F9"
+            thumbTintColor="#FFFFFF"
+          />
           <View style={styles.sliderLimits}>
             <Text style={styles.limitText}>10%</Text>
             <Text style={styles.limitText}>50%</Text>
@@ -183,10 +198,17 @@ export const FinancialCommandCenter = ({ navigation }: any) => {
             <Text style={styles.sliderLabel}>UPCOMING FUNDRAISE</Text>
             <Text style={styles.sliderValue}>₹{fundraise} Cr</Text>
           </View>
-          <View style={styles.track}>
-            <View style={[styles.fill, { width: `${(fundraise / 10) * 100}%` }]} />
-            <View style={[styles.thumb, { left: `${(fundraise / 10) * 100}%` }, theme.shadows.premiumLight]} />
-          </View>
+          <Slider
+            style={{ width: '100%', height: 40 }}
+            minimumValue={0}
+            maximumValue={10}
+            step={0.5}
+            value={fundraise}
+            onValueChange={setFundraise}
+            minimumTrackTintColor={theme.colors.primary}
+            maximumTrackTintColor="#F1F5F9"
+            thumbTintColor="#FFFFFF"
+          />
           <View style={styles.sliderLimits}>
             <Text style={styles.limitText}>₹0</Text>
             <Text style={styles.limitText}>₹10 Cr</Text>
