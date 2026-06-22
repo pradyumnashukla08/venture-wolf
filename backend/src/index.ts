@@ -11,10 +11,9 @@ const app = express();
 app.set('trust proxy', 1); // Crucial for rate limiting behind Render proxy
 const PORT = Number(process.env.PORT || 8080);
 
-// Rate Limiter
 const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per windowMs
+  max: 100, // Limit each IP to 100 requests per windowMs
   message: { error: 'Too many evaluation requests from this IP, please try again after 15 minutes' },
   standardHeaders: true,
   legacyHeaders: false,
