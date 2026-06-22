@@ -191,7 +191,7 @@ router.post('/pitch', async (req: Request, res: Response): Promise<void> => {
     }
 
     // SECURITY FIX: Prevent IDOR / Path Traversal
-    if (!audioPath.startsWith(`${userData.user.id}/`)) {
+    if (!audioPath.startsWith(`${userData.user.id}/`) && !audioPath.startsWith(`pitches/${userData.user.id}/`)) {
       res.status(403).json({ error: 'Unauthorized: Cannot access this audio file' });
       return;
     }
