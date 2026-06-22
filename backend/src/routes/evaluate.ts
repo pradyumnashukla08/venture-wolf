@@ -146,7 +146,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         financial_metrics: evaluation.financial_metrics,
         gtm_strategy: evaluation.gtm_strategy,
         financial_forecast: evaluation.financial_forecast,
-        traction_metrics: evaluation.traction_metrics
+        traction_metrics: evaluation.traction_metrics,
+        market_landscape: evaluation.market_landscape
       },
     });
   } catch (error: any) {
