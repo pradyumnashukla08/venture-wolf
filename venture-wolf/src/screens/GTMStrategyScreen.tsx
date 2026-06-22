@@ -1,6 +1,6 @@
 // Forces IDE cache refresh
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
@@ -57,7 +57,7 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
         <View style={styles.gridSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>UNIT ECONOMICS</Text>
-            <TouchableOpacity style={styles.updateBtn}>
+            <TouchableOpacity style={styles.updateBtn} onPress={() => Alert.alert('Sync Data', 'To fetch fresh AI data, please re-run the AI Analysis in your Data Room.')}>
               <Ionicons name="sync-outline" size={14} color={theme.colors.primary} />
               <Text style={styles.updateBtnText}>SYNC DATA</Text>
             </TouchableOpacity>

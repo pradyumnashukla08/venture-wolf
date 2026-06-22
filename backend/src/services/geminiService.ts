@@ -52,7 +52,7 @@ Provide your evaluation as a strict JSON object with exactly the following schem
       "reason": "<reason why this question is being asked based on risks>"
     }
   ],
-  "financial_metrics": {
+  "financial_metrics": { // If exact metrics aren't found, synthesize highly realistic benchmarks based on the startup's stage and industry. Do not return 0s unless absolutely necessary.
     "cash_balance": <number, e.g. 250000000>,
     "monthly_burn": <number, e.g. 5000000>,
     "default_runway": <number representing months>,
@@ -60,7 +60,7 @@ Provide your evaluation as a strict JSON object with exactly the following schem
     "mrr": <number>,
     "headcount_cost": <number>
   },
-  "gtm_strategy": {
+  "gtm_strategy": { // If no GTM strategy is explicitly found in the deck, synthesize a realistic unit economics model and growth channel strategy based on their industry and stage. Generate exactly 3 recommended growth channels.
     "blended_cac": <number>,
     "ltv": <number>,
     "payback_period": <number representing months>,
