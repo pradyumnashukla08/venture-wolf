@@ -90,6 +90,11 @@ const AISparkleInput = ({
   );
 };
 
+const validateLinkedIn = (url: string) => {
+  if (!url) return true;
+  return /^https:\/\/(www\.)?linkedin\.com\/.+$/.test(url);
+};
+
 export const FounderProfileEditor = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet, halfWidth, thirdWidth } = useResponsiveLayout();
   const { session, isProfileComplete, completeProfile, signOut } = useAuth();
@@ -133,6 +138,8 @@ export const FounderProfileEditor = ({ navigation }: any) => {
     
     // Traction (Dynamic)
     // Pre-Seed
+    waitlistCount: '',
+    betaConversion: '',
     productStatus: '',
     problemValidation: '',
     teamCapability: '',
@@ -147,6 +154,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
     
     // Series A
     verifiedArr: '',
+    churnRate: '',
     nrr: '',
     ltvcacRatio: '',
     cacPayback: '',
@@ -166,9 +174,33 @@ export const FounderProfileEditor = ({ navigation }: any) => {
   const isMounted = useRef(true);
 
   useEffect(() => {
-    if (Platform.OS === 'web') {
+    const loadDraft = async () => {
       try {
-        const cached = window.localStorage.getItem('@draft_profile_cache');
+        let cached = null;
+        if (Platform.OS === 'web') {
+          cached = window.localStorage.getItem('@draft_profile_cache');
+        } else {
+          cached = await AsyncStorage.getItem('@draft_profile_cache').catch(() => null);
+        }
+
+        if (!cached && session?.user?.id) {
+          const { data, error } = await supabase.storage.from('data_room').download(`${session.user.id}/profile_draft.json`);
+          if (!error && data) {
+            const text = await new Promise<string>((resolve, reject) => {
+              const fr = new FileReader();
+              fr.onload = () => resolve(fr.result as string);
+              fr.onerror = reject;
+              fr.readAsText(data);
+            });
+            cached = text;
+            if (Platform.OS === 'web') {
+              window.localStorage.setItem('@draft_profile_cache', text);
+            } else {
+              AsyncStorage.setItem('@draft_profile_cache', text).catch(() => {});
+            }
+          }
+        }
+
         if (cached && isMounted.current) {
           const parsed = JSON.parse(cached);
           if (!parsed.fullName && session?.user?.user_metadata?.full_name) {
@@ -191,35 +223,12 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             return { ...prev, fullName: newName, email: newEmail, profileImage: newAvatar };
           });
         }
-      } catch (e) {}
-    } else {
-      AsyncStorage.getItem('@draft_profile_cache')
-        .then(cached => {
-          if (cached && isMounted.current) {
-            const parsed = JSON.parse(cached);
-            if (!parsed.fullName && session?.user?.user_metadata?.full_name) {
-              parsed.fullName = session.user.user_metadata.full_name;
-            }
-            if (!parsed.email && session?.user?.email) {
-              parsed.email = session.user.email;
-            }
-            if ((!parsed.profileImage || parsed.profileImage.includes('randomuser.me')) && session?.user?.user_metadata?.avatar_url) {
-              parsed.profileImage = session.user.user_metadata.avatar_url;
-            }
-            setFormData(parsed);
-            if (parsed.stage) setStartupStage(parsed.stage);
-          } else if (session?.user && isMounted.current) {
-            setFormData(prev => {
-              const newName = session.user.user_metadata?.full_name || prev.fullName;
-              const newEmail = session.user.email || prev.email;
-              const newAvatar = session.user.user_metadata?.avatar_url || prev.profileImage;
-              if (prev.fullName === newName && prev.email === newEmail && prev.profileImage === newAvatar) return prev;
-              return { ...prev, fullName: newName, email: newEmail, profileImage: newAvatar };
-            });
-          }
-        })
-        .catch(() => {}); // Silently fail if native module is null
-    }
+      } catch (e) {
+        console.log('Load Draft Error', e);
+      }
+    };
+    
+    loadDraft();
     return () => { isMounted.current = false; };
   }, [session]);
 
@@ -240,6 +249,11 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             company_name: formData.companyName || 'Pending Profile'
           }, { onConflict: 'id' });
           if (error) console.log('Background Sync Error:', error.message);
+          
+          await supabase.storage.from('data_room').upload(`${session.user.id}/profile_draft.json`, JSON.stringify(formData), {
+            contentType: 'application/json',
+            upsert: true
+          }).catch(e => console.log('Draft Sync Error:', e.message));
         }
 
         if (isMounted.current) setIsSaving(false);
@@ -359,7 +373,20 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>LINKEDIN URL</Text>
-                <TextInput style={styles.input} placeholder="linkedin.com/in/rahul" placeholderTextColor="#94A3B8" value={formData.linkedinUrl} onChangeText={v => handleChange('linkedinUrl', v)} autoCapitalize="none" />
+                <TextInput 
+                  style={[styles.input, !validateLinkedIn(formData.linkedinUrl) && { borderColor: '#EF4444', borderWidth: 1 }]} 
+                  placeholder="https://www.linkedin.com/in/rahul" 
+                  placeholderTextColor="#94A3B8" 
+                  value={formData.linkedinUrl} 
+                  onChangeText={v => handleChange('linkedinUrl', v)}
+                  onBlur={() => {
+                    if (formData.linkedinUrl !== '' && !validateLinkedIn(formData.linkedinUrl)) {
+                      handleChange('linkedinUrl', '');
+                    }
+                  }}
+                  autoCapitalize="none" 
+                />
+                {!validateLinkedIn(formData.linkedinUrl) && formData.linkedinUrl !== '' && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>Please enter a full LinkedIn URL (https://...)</Text>}
               </View>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>EMAIL ADDRESS</Text>
@@ -369,10 +396,25 @@ export const FounderProfileEditor = ({ navigation }: any) => {
 
             <Text style={[styles.label, { marginTop: 16, marginBottom: 12 }]}>KEY TEAM MEMBERS ({formData.team.length}/4)</Text>
             {formData.team.map((member, idx) => (
-              <View key={idx} style={styles.teamMemberRow}>
-                <TextInput style={[styles.input, { flex: 2, marginRight: 8 }]} placeholder="Name" placeholderTextColor="#94A3B8" value={member.name} onChangeText={v => updateTeamMember(idx, 'name', v)} />
-                <TextInput style={[styles.input, { flex: 1, marginRight: 8 }]} placeholder="Role" placeholderTextColor="#94A3B8" value={member.role} onChangeText={v => updateTeamMember(idx, 'role', v)} />
-                <TextInput style={[styles.input, { flex: 2 }]} placeholder="LinkedIn URL" placeholderTextColor="#94A3B8" value={member.linkedin} onChangeText={v => updateTeamMember(idx, 'linkedin', v)} autoCapitalize="none" />
+              <View key={idx} style={{ marginBottom: 12 }}>
+                <View style={styles.teamMemberRow}>
+                  <TextInput style={[styles.input, { flex: 2, marginRight: 8 }]} placeholder="Name" placeholderTextColor="#94A3B8" value={member.name} onChangeText={v => updateTeamMember(idx, 'name', v)} />
+                  <TextInput style={[styles.input, { flex: 1, marginRight: 8 }]} placeholder="Role" placeholderTextColor="#94A3B8" value={member.role} onChangeText={v => updateTeamMember(idx, 'role', v)} />
+                  <TextInput 
+                    style={[styles.input, { flex: 2 }, !validateLinkedIn(member.linkedin) && { borderColor: '#EF4444', borderWidth: 1 }]} 
+                    placeholder="https://linkedin.com/in/..." 
+                    placeholderTextColor="#94A3B8" 
+                    value={member.linkedin} 
+                    onChangeText={v => updateTeamMember(idx, 'linkedin', v)}
+                    onBlur={() => {
+                      if (member.linkedin !== '' && !validateLinkedIn(member.linkedin)) {
+                        updateTeamMember(idx, 'linkedin', '');
+                      }
+                    }}
+                    autoCapitalize="none" 
+                  />
+                </View>
+                {!validateLinkedIn(member.linkedin) && member.linkedin !== '' && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>Please enter a full LinkedIn URL (https://...)</Text>}
               </View>
             ))}
             {formData.team.length < 4 && (
@@ -541,11 +583,11 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>TARGET RAISE (₹)</Text>
-                <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., ₹2 Cr" placeholderTextColor="#94A3B8" value={formData.targetRaise} onChangeText={v => handleChange('targetRaise', v)} />
+                <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., 2000000" placeholderTextColor="#94A3B8" value={formData.targetRaise} onChangeText={v => handleChange('targetRaise', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
               </View>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>VALUATION CAP (₹)</Text>
-                <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., ₹20 Cr" placeholderTextColor="#94A3B8" value={formData.valuationCap} onChangeText={v => handleChange('valuationCap', v)} />
+                <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., 20000000" placeholderTextColor="#94A3B8" value={formData.valuationCap} onChangeText={v => handleChange('valuationCap', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
               </View>
             </View>
             <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
@@ -572,6 +614,28 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             
             {formData.stage === 'Pre-Seed' && (
               <>
+                <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
+                  <View style={{ width: halfWidth }}>
+                    <AISparkleInput
+                      label="WAITLIST COUNT"
+                      placeholder="e.g., 500"
+                      value={formData.waitlistCount}
+                      onChangeText={v => handleChange('waitlistCount', v.replace(/[^0-9]/g, ''))}
+                      contextData={{ stage: formData.stage }}
+                      instruction="Generate a realistic waitlist count for a Pre-Seed startup. Output ONLY the number."
+                    />
+                  </View>
+                  <View style={{ width: halfWidth }}>
+                    <AISparkleInput
+                      label="BETA CONVERSION (%)"
+                      placeholder="e.g., 10%"
+                      value={formData.betaConversion}
+                      onChangeText={v => handleChange('betaConversion', v)}
+                      contextData={{ stage: formData.stage }}
+                      instruction="Generate a realistic beta conversion rate percentage. Output ONLY the percentage."
+                    />
+                  </View>
+                </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>PRODUCT STATUS</Text>
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
@@ -633,7 +697,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="USER/CLIENT TRACTION"
+                      label="ACTIVE USERS"
                       placeholder="e.g., 1500 users"
                       value={formData.userTraction}
                       onChangeText={v => handleChange('userTraction', v)}
@@ -682,22 +746,22 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                 <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="VERIFIED ARR (₹)"
-                      placeholder="e.g., ₹3 Cr"
+                      label="MRR (₹)"
+                      placeholder="e.g., ₹25 L"
                       value={formData.verifiedArr}
                       onChangeText={v => handleChange('verifiedArr', v)}
                       contextData={{ stage: formData.stage, sector: formData.sector }}
-                      instruction="Generate a realistic Verified ARR for a Series-A startup. Output ONLY the value in Indian currency (e.g., ₹3 Cr)."
+                      instruction="Generate a realistic MRR for a Series-A startup. Output ONLY the value in Indian currency (e.g., ₹25 L)."
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="NET REVENUE RETENTION (NRR) %"
-                      placeholder="e.g., 115%"
-                      value={formData.nrr}
-                      onChangeText={v => handleChange('nrr', v)}
+                      label="CHURN RATE (%)"
+                      placeholder="e.g., 5%"
+                      value={formData.churnRate}
+                      onChangeText={v => handleChange('churnRate', v)}
                       contextData={{ sector: formData.sector }}
-                      instruction="Generate a realistic Net Revenue Retention (NRR) percentage. Output ONLY the percentage (e.g., 115%)."
+                      instruction="Generate a realistic Churn Rate percentage. Output ONLY the percentage (e.g., 5%)."
                     />
                   </View>
                 </View>
@@ -714,12 +778,12 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="CAC PAYBACK PERIOD (MONTHS)"
-                      placeholder="e.g., 8"
+                      label="CUSTOMER ACQUISITION COST (CAC) ₹"
+                      placeholder="e.g., ₹1000"
                       value={formData.cacPayback}
-                      onChangeText={v => handleChange('cacPayback', v.replace(/[^0-9]/g, ''))}
+                      onChangeText={v => handleChange('cacPayback', v)}
                       contextData={{ sector: formData.sector }}
-                      instruction="Generate a realistic CAC Payback Period in months. Output ONLY the number (e.g., 8)."
+                      instruction="Generate a realistic CAC in Indian currency. Output ONLY the number (e.g., ₹1000)."
                     />
                   </View>
                 </View>
@@ -786,13 +850,23 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="MARKET SHARE NICHE %"
-                      placeholder="e.g., 12%"
-                      value={formData.marketShare}
-                      onChangeText={v => handleChange('marketShare', v)}
+                      label="NET REVENUE RETENTION (NRR) %"
+                      placeholder="e.g., 120%"
+                      value={formData.nrr}
+                      onChangeText={v => handleChange('nrr', v)}
                       contextData={{ sector: formData.sector }}
-                      instruction="Generate a realistic niche market share percentage for a Series-B startup. Output ONLY the percentage (e.g., 12%)."
+                      instruction="Generate a realistic NRR percentage for a Series-B startup. Output ONLY the percentage (e.g., 120%)."
                     />
+                  </View>
+                </View>
+                <View style={[styles.inputGroup, { marginTop: 16 }]}>
+                  <Text style={styles.label}>LTV TO CAC RATIO</Text>
+                  <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
+                    {['<2:1', '2:1', '3:1', '>4:1'].map(ratio => (
+                      <TouchableOpacity key={ratio} activeOpacity={0.7} onPress={() => handleChange('ltvcacRatio', ratio)} style={[styles.outlineButton, { flex: 1, backgroundColor: formData.ltvcacRatio === ratio ? '#0F172A' : 'transparent', borderColor: formData.ltvcacRatio === ratio ? '#0F172A' : '#E2E8F0', paddingHorizontal: 0 }]}>
+                        <Text style={[styles.outlineButtonText, { color: formData.ltvcacRatio === ratio ? '#FFF' : '#475569', fontSize: 11 }]}>{ratio}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>
                 <View style={styles.inputGroup}>

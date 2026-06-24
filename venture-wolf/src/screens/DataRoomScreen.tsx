@@ -287,6 +287,9 @@ export const DataRoomScreen = ({ navigation }: any) => {
               </View>
             </Animated.View>
             <Text style={styles.loadingText}>{LOADING_STATES[loadingTextIndex]}</Text>
+            <Text style={{ color: '#64748B', fontSize: 13, marginTop: 12, textAlign: 'center', paddingHorizontal: 32 }}>
+              This may take some time to analyze. Please wait patiently and do not leave the app.
+            </Text>
           </View>
         )}
 
