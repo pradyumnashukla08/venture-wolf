@@ -5,12 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import { API_BASE_URL } from '../config/api';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { useAuth } from '../context/AuthContext';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { decode } from 'base64-arraybuffer';
 
 const LOADING_STATES = [
   "Sanitizing Data...",
@@ -20,41 +19,43 @@ const LOADING_STATES = [
   "Finalizing Verdict..."
 ];
 
-const DOC_CHECKLIST: Record<string, { id: string, label: string, format: string, subLabel: string, icon: any, description: string }[]> = {
+const DOC_CHECKLIST: Record<string, { id: string, label: string, format: string, subLabel: string, icon: any, description: string, isOptional?: boolean }[]> = {
   'Pre-Seed': [
     { id: 'pitch_deck', label: 'Pitch Deck', format: 'pdf,image', subLabel: 'PDF or Image • Max 15MB', icon: 'document-text', description: 'A 10-15 slide presentation covering the Problem, Solution, Market Size, Business Model, Team, and "The Ask".' },
-    { id: 'inc_docs', label: 'Incorporation Documents', format: 'pdf,image', subLabel: 'PDF or Image', icon: 'business', description: 'Legal proof of company registration (e.g., Certificate of Incorporation, GSTIN/CIN).' },
-    { id: 'basic_cap', label: 'Basic Cap Table', format: 'excel', subLabel: 'Excel/CSV', icon: 'pie-chart', description: 'A simple spreadsheet listing founders, early team members, and any initial angel investors with their equity percentages.' },
-    { id: 'spend_plan', label: 'Hiring & Spend Plan', format: 'excel', subLabel: 'Excel/CSV', icon: 'cash', description: 'A 12-month projection showing how you will spend the raised capital (salaries, marketing, product).' }
+    { id: 'inc_docs', label: 'Incorporation Documents', format: 'pdf,image', subLabel: 'PDF or Image (Optional)', icon: 'business', description: 'Legal proof of company registration (e.g., Certificate of Incorporation, GSTIN/CIN).', isOptional: true },
+    { id: 'basic_cap', label: 'Basic Cap Table', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'pie-chart', description: 'A simple spreadsheet listing founders, early team members, and any initial angel investors with their equity percentages.', isOptional: true },
+    { id: 'spend_plan', label: 'Hiring & Spend Plan', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'cash', description: 'A 12-month projection showing how you will spend the raised capital (salaries, marketing, product).', isOptional: true }
   ],
   'Seed': [
     { id: 'pitch_deck', label: 'Pitch Deck', format: 'pdf,image', subLabel: 'PDF or Image • Max 15MB', icon: 'document-text', description: 'A 15-20 slide deck focused on early traction, unit economics, and the go-to-market strategy.' },
-    { id: 'bank_stmts', label: 'Bank Statements (3 Mos)', format: 'pdf,image', subLabel: 'PDF or Image', icon: 'card', description: 'Official bank statements showing current cash balance and recent burn rate.' },
-    { id: 'fin_model', label: 'Financial Model', format: 'excel', subLabel: 'Excel/CSV', icon: 'bar-chart', description: 'A 3-year projection of revenue, costs, and cash flow with clear assumptions.' },
-    { id: 'std_cap', label: 'Standard Cap Table', format: 'excel', subLabel: 'Excel/CSV', icon: 'pie-chart', description: 'Cap table including ESOP pools, convertible notes, SAFEs, and priced rounds.' },
-    { id: 'basic_pnl', label: 'Basic P&L', format: 'excel', subLabel: 'Excel/CSV', icon: 'calculator', description: 'Profit and Loss statement showing historical revenue and expenses.' }
+    { id: 'bank_stmts', label: 'Bank Statements (3 Mos)', format: 'pdf,image', subLabel: 'PDF or Image (Optional)', icon: 'card', description: 'Official bank statements showing current cash balance and recent burn rate.', isOptional: true },
+    { id: 'fin_model', label: 'Financial Model', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'bar-chart', description: 'A 3-year projection of revenue, costs, and cash flow with clear assumptions.', isOptional: true },
+    { id: 'std_cap', label: 'Standard Cap Table', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'pie-chart', description: 'Cap table including ESOP pools, convertible notes, SAFEs, and priced rounds.', isOptional: true },
+    { id: 'basic_pnl', label: 'Basic P&L', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'calculator', description: 'Profit and Loss statement showing historical revenue and expenses.', isOptional: true }
   ],
   'Series-A': [
-    { id: 'tax_returns', label: 'Tax Returns (1-2 Yrs)', format: 'pdf,image', subLabel: 'PDF or Image', icon: 'document', description: 'Official corporate tax filings for the past 1-2 years.' },
-    { id: 'hist_fin', label: 'Historical Financials', format: 'pdf,image', subLabel: 'PDF or Image', icon: 'library', description: 'Audited or management-prepared financial statements.' },
-    { id: 'three_stmt', label: '3-Statement Model', format: 'excel', subLabel: 'Excel/CSV', icon: 'stats-chart', description: 'Integrated Income Statement, Balance Sheet, and Cash Flow projections.' },
-    { id: 'trial_bal', label: 'Trial Balance / GL', format: 'excel', subLabel: 'Excel/CSV', icon: 'list', description: 'Detailed ledger of all financial transactions.' },
-    { id: 'cust_cohort', label: 'Customer Cohort Sheet', format: 'excel', subLabel: 'Excel/CSV', icon: 'people', description: 'Monthly/Quarterly cohort retention analysis of users or revenue.' },
-    { id: 'cac_ltv', label: 'CAC & LTV Calculator', format: 'excel', subLabel: 'Excel/CSV', icon: 'calculator', description: 'Detailed breakdown of customer acquisition cost vs lifetime value by channel.' }
+    { id: 'pitch_deck', label: 'Pitch Deck', format: 'pdf,image', subLabel: 'PDF or Image • Max 15MB', icon: 'document-text', description: 'A 15-20 slide deck focused on early traction, unit economics, and the go-to-market strategy.' },
+    { id: 'tax_returns', label: 'Tax Returns (1-2 Yrs)', format: 'pdf,image', subLabel: 'PDF or Image (Optional)', icon: 'document', description: 'Official corporate tax filings for the past 1-2 years.', isOptional: true },
+    { id: 'hist_fin', label: 'Historical Financials', format: 'pdf,image', subLabel: 'PDF or Image (Optional)', icon: 'library', description: 'Audited or management-prepared financial statements.', isOptional: true },
+    { id: 'three_stmt', label: '3-Statement Model', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'stats-chart', description: 'Integrated Income Statement, Balance Sheet, and Cash Flow projections.', isOptional: true },
+    { id: 'trial_bal', label: 'Trial Balance / GL', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'list', description: 'Detailed ledger of all financial transactions.', isOptional: true },
+    { id: 'cust_cohort', label: 'Customer Cohort Sheet', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'people', description: 'Monthly/Quarterly cohort retention analysis of users or revenue.', isOptional: true },
+    { id: 'cac_ltv', label: 'CAC & LTV Calculator', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'calculator', description: 'Detailed breakdown of customer acquisition cost vs lifetime value by channel.', isOptional: true }
   ],
   'Series-B': [
-    { id: 'audited_fin', label: 'Audited Financials', format: 'pdf,image', subLabel: 'PDF or Image', icon: 'shield-checkmark', description: 'Financial statements formally audited by a certified CPA firm.' },
-    { id: 'mat_contracts', label: 'Material Contracts', format: 'pdf,image', subLabel: 'PDF or Image', icon: 'document-attach', description: 'Key enterprise client contracts, vendor agreements, and leases.' },
-    { id: 'bva_sheet', label: 'Budget vs. Actuals (BvA)', format: 'excel', subLabel: 'Excel/CSV', icon: 'trending-up', description: 'Comparison of past financial projections against actual performance.' },
-    { id: 'adv_cap', label: 'Advanced Cap Table Export', format: 'excel', subLabel: 'Excel/CSV', icon: 'pie-chart', description: 'Fully modeled cap table including pro-forma scenarios and liquidation preferences.' },
-    { id: 'gran_nrr', label: 'Granular NRR', format: 'excel', subLabel: 'Excel/CSV', icon: 'analytics', description: 'Net Revenue Retention breakdown including expansion, contraction, and churn.' }
+    { id: 'pitch_deck', label: 'Pitch Deck', format: 'pdf,image', subLabel: 'PDF or Image • Max 15MB', icon: 'document-text', description: 'A 15-20 slide deck focused on early traction, unit economics, and the go-to-market strategy.' },
+    { id: 'audited_fin', label: 'Audited Financials', format: 'pdf,image', subLabel: 'PDF or Image (Optional)', icon: 'shield-checkmark', description: 'Financial statements formally audited by a certified CPA firm.', isOptional: true },
+    { id: 'mat_contracts', label: 'Material Contracts', format: 'pdf,image', subLabel: 'PDF or Image (Optional)', icon: 'document-attach', description: 'Key enterprise client contracts, vendor agreements, and leases.', isOptional: true },
+    { id: 'bva_sheet', label: 'Budget vs. Actuals (BvA)', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'trending-up', description: 'Comparison of past financial projections against actual performance.', isOptional: true },
+    { id: 'adv_cap', label: 'Advanced Cap Table Export', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'pie-chart', description: 'Fully modeled cap table including pro-forma scenarios and liquidation preferences.', isOptional: true },
+    { id: 'gran_nrr', label: 'Granular NRR', format: 'excel', subLabel: 'Excel/CSV (Optional)', icon: 'analytics', description: 'Net Revenue Retention breakdown including expansion, contraction, and churn.', isOptional: true }
   ]
 };
 
 export const DataRoomScreen = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet, halfWidth } = useResponsiveLayout();
   const { completeImport, apiFetch } = useAuth();
-  const { startupStage, setEvaluationResult, setProcessedDocIds, uploadedDocs, setUploadedDocs } = useProfile();
+  const { startupStage, setEvaluationResult, setProcessedDocIds, uploadedDocs, setUploadedDocs } = useProfileStore();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
@@ -169,12 +170,17 @@ export const DataRoomScreen = ({ navigation }: any) => {
           return;
         }
 
-        const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: 'base64' });
         const filePath = `${session.user.id}/${Date.now()}_${asset.name.replace(/\s/g, '_')}`;
+
+        // SECURITY & PERFORMANCE FIX: Bypass Base64 to prevent OOM on large PDFs.
+        // Fetching the local URI creates a native Blob reference without loading
+        // the entire file into the JavaScript string heap.
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
 
         const { data, error } = await supabase.storage
           .from('data_room')
-          .upload(filePath, decode(base64), {
+          .upload(filePath, blob, {
             contentType: asset.mimeType || 'application/octet-stream',
             upsert: true
           });
@@ -297,13 +303,13 @@ export const DataRoomScreen = ({ navigation }: any) => {
 
       <View style={[styles.bottomBar, theme.shadows.premiumLight]}>
         <TouchableOpacity 
-          style={[styles.primaryButton, (isProcessing || uploadedDocs.length === 0) && styles.primaryButtonDisabled]} 
+          style={[styles.primaryButton, (isProcessing || !uploadedDocs.some(d => d.id === 'pitch_deck')) && styles.primaryButtonDisabled]} 
           activeOpacity={0.8}
-          disabled={isProcessing || uploadedDocs.length === 0}
+          disabled={isProcessing || !uploadedDocs.some(d => d.id === 'pitch_deck')}
           onPress={() => setIsProcessing(true)}
         >
           <Text style={styles.primaryButtonText}>
-            {isProcessing ? 'AI PROCESSING INITIATED...' : uploadedDocs.length === 0 ? 'UPLOAD AT LEAST ONE DOCUMENT' : 'RUN AI ANALYSIS'}
+            {isProcessing ? 'AI PROCESSING INITIATED...' : !uploadedDocs.some(d => d.id === 'pitch_deck') ? 'PITCH DECK REQUIRED' : 'RUN AI ANALYSIS'}
           </Text>
         </TouchableOpacity>
       </View>

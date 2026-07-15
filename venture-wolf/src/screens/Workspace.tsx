@@ -6,13 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import { useAuth } from '../context/AuthContext';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 
 export const Workspace = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet } = useResponsiveLayout();
   
   const { isProfileComplete } = useAuth();
-  const { evaluationResult } = useProfile();
+  const { evaluationResult } = useProfileStore();
 
   const coreProfile = [
     { id: '1', title: 'Company Overview', status: isProfileComplete ? 'done' : 'pending', route: 'Profile', icon: 'business-outline' },
@@ -22,8 +22,8 @@ export const Workspace = ({ navigation }: any) => {
   ];
 
   const marketMetrics = [
-    { id: '3', title: 'Market Opportunity', status: evaluationResult?.market_score > 0 ? 'done' : 'pending', route: 'MarketOpportunity', icon: 'pie-chart-outline' },
-    { id: '5', title: 'Traction & Growth', status: evaluationResult?.overall_score > 0 ? 'done' : 'pending', route: 'Traction', icon: 'trending-up-outline' },
+    { id: '3', title: 'Market Opportunity', status: (evaluationResult?.market_score || 0) > 0 ? 'done' : 'pending', route: 'MarketOpportunity', icon: 'pie-chart-outline' },
+    { id: '5', title: 'Traction & Growth', status: (evaluationResult?.overall_score || 0) > 0 ? 'done' : 'pending', route: 'Traction', icon: 'trending-up-outline' },
   ];
 
   const aiVerification = [

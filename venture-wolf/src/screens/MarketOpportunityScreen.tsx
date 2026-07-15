@@ -4,17 +4,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
-import { AIDisclaimer } from '../components/AIDisclaimer';
+import type { MarketLandscape } from '../types/evaluation';import { AIDisclaimer } from '../components/AIDisclaimer';
 
 export const MarketOpportunityScreen = ({ navigation }: any) => {
-  const { evaluationResult, processedDocIds } = useProfile();
+  const { evaluationResult, processedDocIds } = useProfileStore();
   
   const hasRequiredDocs = processedDocIds.includes('pitch_deck');
 
   // Fallback to AI market landscape or use cache
-  const aiMarket = evaluationResult?.market_landscape || {};
+  const aiMarket: Partial<MarketLandscape> = evaluationResult?.market_landscape || {};
   const aiCompetitors = aiMarket.competitors || [];
 
   const [marketData, setMarketData] = useState({

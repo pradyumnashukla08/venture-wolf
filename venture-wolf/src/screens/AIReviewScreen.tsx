@@ -5,16 +5,18 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
+import { AIDisclaimer } from '../components/AIDisclaimer';
+import type { EvaluationResult } from '../types/evaluation';
 import { getAIPromptForStage } from '../services/aiPromptMatrix';
 import { generateActionSteps } from '../utils/remediationMapper';
 
 export const AIReviewScreen = ({ navigation }: any) => {
-  const { startupStage, evaluationResult } = useProfile();
+  const { startupStage, evaluationResult } = useProfileStore();
   const aiPrompt = getAIPromptForStage(startupStage);
 
   // Fallbacks if data isn't loaded yet, with strict null-checking for nested properties
-  const safeResult = evaluationResult || {};
+  const safeResult: Partial<EvaluationResult> = evaluationResult || {};
   const evalData = {
     overall_score: typeof safeResult.overall_score === 'number' ? safeResult.overall_score : 50,
     team_score: typeof safeResult.team_score === 'number' ? safeResult.team_score : 50,

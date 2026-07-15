@@ -24,20 +24,20 @@ class SvgErrorBoundary extends React.Component<{children: React.ReactNode}, {has
   }
 }
 
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
-
+import type { TractionMetrics, FinancialMetrics, GTMStrategy } from '../types/evaluation';
 export const TractionGrowthScreen = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet, halfWidth } = useResponsiveLayout();
-  const { startupStage, evaluationResult, processedDocIds } = useProfile();
+  const { startupStage, evaluationResult, processedDocIds } = useProfileStore();
   
   const hasFinancials = processedDocIds.some(id => 
     ['fin_model', 'basic_pnl', 'three_stmt', 'hist_fin', 'bank_stmts', 'bva_sheet', 'audited_fin', 'trial_bal', 'spend_plan', 'basic_cap', 'std_cap'].includes(id)
   );
 
-  const tm = evaluationResult?.traction_metrics || {};
-  const fm = evaluationResult?.financial_metrics || {};
-  const gtm = evaluationResult?.gtm_strategy || {};
+  const tm: Partial<TractionMetrics> = evaluationResult?.traction_metrics || {};
+  const fm: Partial<FinancialMetrics> = evaluationResult?.financial_metrics || {};
+  const gtm: Partial<GTMStrategy> = evaluationResult?.gtm_strategy || {};
 
   const formatCurrency = (val: number | undefined | null) => {
     if (!val) return 'N/A';

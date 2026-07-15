@@ -4,14 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import { AIDisclaimer } from '../components/AIDisclaimer';
-import { useProfile } from '../context/ProfileContext';
+import type { EvaluationResult, FinancialMetrics, GTMStrategy } from '../types/evaluation';
+import { useProfileStore } from '../store/useProfileStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const UnifiedEvaluationHub = ({ navigation }: any) => {
   const [activeTab, setActiveTab] = useState('Overview');
   const tabs = ['Overview', 'Deck', 'Financials', 'Team', 'Activity'];
 
-  const { evaluationResult, startupStage } = useProfile();
+  const { evaluationResult, startupStage } = useProfileStore() as { evaluationResult: Partial<EvaluationResult>, startupStage: string };
   const [companyName, setCompanyName] = useState('Your Startup');
   const [oneLiner, setOneLiner] = useState('Loading...');
   
@@ -29,8 +30,8 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
     loadProfile();
   }, []);
 
-  const metrics = evaluationResult?.financial_metrics || {};
-  const gtm = evaluationResult?.gtm_strategy || {};
+  const metrics: Partial<FinancialMetrics> = evaluationResult?.financial_metrics || {};
+  const gtm: Partial<GTMStrategy> = evaluationResult?.gtm_strategy || {};
 
   const formatCurrency = (val: number | undefined) => {
     if (!val) return 'N/A';
@@ -143,7 +144,7 @@ export const UnifiedEvaluationHub = ({ navigation }: any) => {
         {/* Risks */}
         <Text style={styles.sectionTitle}>Critical Risks</Text>
         <View style={styles.listContainer}>
-          {evaluationResult?.red_flags?.length > 0 ? (
+          {evaluationResult?.red_flags?.length ? (
             evaluationResult.red_flags.map((flag: string, idx: number) => (
               <View key={idx} style={styles.listItem}>
                 <View style={styles.riskIconBox}>

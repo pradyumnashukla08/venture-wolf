@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { StyleSheet, Text, View, TouchableOpacity, Image, Modal, ScrollView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Modal, ScrollView, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import Svg, { Circle, G, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,14 +9,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { useAuth } from '../context/AuthContext';
 import { AuthBottomSheet } from '../components/AuthBottomSheet';
 import { registerForPushNotificationsAsync, scheduleDailyStreakReminder } from '../services/notificationService';
 
 export const FounderHome = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet, halfWidth } = useResponsiveLayout();
-  const { profileImage, evaluationResult, streakCount, dailyTaskCompletedDate, setDailyTaskCompletedDate, uploadedDocs } = useProfile();
+  const { profileImage, evaluationResult, streakCount, dailyTaskCompletedDate, setDailyTaskCompletedDate, uploadedDocs } = useProfileStore();
   const { session, isAuthenticated, isProfileComplete, setRoleOffline } = useAuth();
   
   const userName = session?.user?.user_metadata?.full_name || 'Founder';
@@ -91,7 +92,7 @@ export const FounderHome = ({ navigation }: any) => {
 
   // Derive Daily Task
   const hasEval = !!evaluationResult;
-  let dailyTaskText = "Upload your Pitch Deck & Financials to get AI tasks";
+  let dailyTaskText = "Upload your Pitch Deck to get AI tasks";
   if (hasEval) {
     if (evaluationResult?.daily_tasks && Array.isArray(evaluationResult.daily_tasks) && evaluationResult.daily_tasks.length > 0) {
       dailyTaskText = evaluationResult.daily_tasks[(streakCount - 1) % evaluationResult.daily_tasks.length];
@@ -160,8 +161,8 @@ export const FounderHome = ({ navigation }: any) => {
       id: 1, 
       title: 'SYSTEM UNAVAILABLE', 
       severity: 'high', 
-      desc: 'The Matrix cannot analyze your startup because you have not uploaded a Pitch Deck or Financials.',
-      fix: 'Upload your documents in the Import Center to establish link.',
+      desc: 'The Matrix cannot analyze your startup because you have not uploaded a Pitch Deck.',
+      fix: 'Upload your document in the Import Center to establish link.',
       route: 'ImportCenter'
     }
   ];
@@ -232,7 +233,7 @@ export const FounderHome = ({ navigation }: any) => {
               onPress={() => navigation.navigate('Profile')}
             >
               {(profileImage || session?.user?.user_metadata?.avatar_url) ? (
-                <Image source={{ uri: profileImage || session?.user?.user_metadata?.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                <Image source={{ uri: profileImage || session?.user?.user_metadata?.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22 }} contentFit="cover" transition={200} />
               ) : (
                 <BlurView intensity={30} tint="light" style={styles.iconPlaceholder}>
                   <Ionicons name="person" size={20} color="#FFFFFF" />
@@ -312,7 +313,7 @@ export const FounderHome = ({ navigation }: any) => {
                 </LinearGradient>
               </View>
               <Text style={styles.emptyStateTitle}>INITIATE VC MATRIX</Text>
-              <Text style={styles.emptyStateSub}>Upload your Deck and Financials to synchronize with the AI core and generate your fundability vectors.</Text>
+              <Text style={styles.emptyStateSub}>Upload your Deck to synchronize with the AI core and generate your fundability vectors.</Text>
               
               <View style={styles.emptyStateBtn}>
                 <LinearGradient colors={['#38BDF8', '#3B82F6']} start={{x:0, y:0}} end={{x:1, y:1}} style={styles.emptyStateBtnBg}>
@@ -389,6 +390,24 @@ export const FounderHome = ({ navigation }: any) => {
           </View>
         </View>
 
+        {/* High-Contrast Finance CTA */}
+        <View style={styles.listSection}>
+          <TouchableOpacity 
+            activeOpacity={0.8}
+            onPress={() => handleEcosystemClick('Finance')}
+            style={{ borderRadius: 16, overflow: 'hidden' }}
+          >
+            <LinearGradient 
+              colors={['#FACC15', '#F59E0B']} 
+              start={{x: 0, y: 0}} end={{x: 1, y: 1}} 
+              style={{ padding: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="flash" size={24} color="#0F172A" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 16, fontWeight: '900', color: '#0F172A', letterSpacing: 1 }}>GENERATE FINANCIAL FORECAST</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
         {/* App Ecosystem Grid */}
         <View style={styles.listSection}>
           <View style={styles.sectionHeaderRow}>
@@ -403,7 +422,7 @@ export const FounderHome = ({ navigation }: any) => {
               { id: 'InvestorProfile', icon: 'lock', label: 'VC PROFILE', locked: true },
               { id: 'AICommittee', icon: 'lock', label: 'AI BOARD', locked: true },
               { id: 'DueDiligence', icon: 'shield-search', label: 'DILIGENCE' },
-              { id: 'FinancialCommand', icon: 'finance', label: 'FINANCIALS' },
+              { id: 'Finance', icon: 'finance', label: 'FINANCIALS' },
               { id: 'PitchPractice', icon: 'microphone-variant', label: 'PITCH PREP' },
               { id: 'GTMStrategy', icon: 'rocket-launch', label: 'GTM STRAT' },
               { id: 'LegalDocs', icon: 'gavel', label: 'LEGAL DOCS' },

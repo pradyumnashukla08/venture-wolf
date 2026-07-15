@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { FundingStage } from '../types/schema';
 import { theme } from '../constants/theme';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 
 
 
@@ -71,7 +71,7 @@ type RowDef = {
 };
 
 export const FinancialForecastTable = ({ currentStage = 'Pre-Seed' }: { currentStage?: FundingStage }) => {
-  const { evaluationResult } = useProfile();
+  const { evaluationResult } = useProfileStore();
   const [expanded, setExpanded] = useState({
     revenue: true,
     cogs: false,

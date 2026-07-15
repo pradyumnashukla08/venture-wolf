@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { theme } from '../constants/theme';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import * as Linking from 'expo-linking';
+import { Ionicons } from '@expo/vector-icons';
 
 // Complete any pending auth sessions
 WebBrowser.maybeCompleteAuthSession();
@@ -15,6 +16,7 @@ export const LoginScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSignIn = async () => {
@@ -117,86 +119,101 @@ export const LoginScreen = () => {
   return (
     <KeyboardAvoidingView 
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoMark}>🐺</Text>
-          <Text style={styles.title}>WowFund</Text>
-          <Text style={styles.subtitle}>THE SYNDICATE PROTOCOL</Text>
-        </View>
-
-        <View style={styles.formContainer}>
-          <TouchableOpacity 
-            style={[styles.googleButton, loading && styles.disabledButton]} 
-            onPress={handleGoogleSignIn}
-            disabled={loading}
-          >
-            <Text style={styles.googleIcon}>G</Text>
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+        <View style={styles.content}>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logoMark}>🐺</Text>
+            <Text style={styles.title}>WowFund</Text>
+            <Text style={styles.subtitle}>THE SYNDICATE PROTOCOL</Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>EMAIL ADDRESS</Text>
-            <TextInput 
-              style={styles.input} 
-              placeholder="founder@startup.com" 
-              placeholderTextColor={theme.colors.darkTextMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>PASSWORD</Text>
-            <TextInput 
-              style={styles.input} 
-              placeholder="••••••••" 
-              placeholderTextColor={theme.colors.darkTextMuted}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              editable={!loading}
-            />
-            <TouchableOpacity onPress={handleForgotPassword} style={{ alignItems: 'flex-end', marginTop: 8 }} disabled={loading}>
-              <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: 'bold' }}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.actionButtonsRow}>
+          <View style={styles.formContainer}>
             <TouchableOpacity 
-              style={[styles.primaryButton, loading && styles.disabledButton, { flex: 1 }]} 
-              onPress={handleSignIn}
+              style={[styles.googleButton, loading && styles.disabledButton]} 
+              onPress={handleGoogleSignIn}
               disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator color="#0F172A" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Sign In</Text>
-              )}
+              <Text style={styles.googleIcon}>G</Text>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </TouchableOpacity>
+
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>EMAIL ADDRESS</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="founder@startup.com" 
+                placeholderTextColor={theme.colors.darkTextMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>PASSWORD</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput 
+                  style={styles.passwordInput} 
+                  placeholder="••••••••" 
+                  placeholderTextColor={theme.colors.darkTextMuted}
+                  secureTextEntry={!isPasswordVisible}
+                  value={password}
+                  onChangeText={setPassword}
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIconContainer}
+                  onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                  disabled={loading}
+                >
+                  <Ionicons 
+                    name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} 
+                    size={20} 
+                    color={theme.colors.darkTextMuted} 
+                  />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity onPress={handleForgotPassword} style={{ alignItems: 'flex-end', marginTop: 8 }} disabled={loading}>
+                <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: 'bold' }}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity 
+                style={[styles.primaryButton, loading && styles.disabledButton, { flex: 1 }]} 
+                onPress={handleSignIn}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#0F172A" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Sign In</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={{ alignItems: 'center', marginTop: 24 }} 
+              onPress={handleSignUpNavigation}
+              disabled={loading}
+            >
+              <Text style={{ color: theme.colors.darkTextMuted, fontSize: 14 }}>
+                Don't have an account? <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Create One</Text>
+              </Text>
             </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity 
-            style={{ alignItems: 'center', marginTop: 24 }} 
-            onPress={handleSignUpNavigation}
-            disabled={loading}
-          >
-            <Text style={{ color: theme.colors.darkTextMuted, fontSize: 14 }}>
-              Don't have an account? <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Create One</Text>
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -290,6 +307,25 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: theme.colors.darkText,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.darkSurface,
+    borderWidth: 1,
+    borderColor: theme.colors.darkBorder,
+    borderRadius: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+    color: theme.colors.darkText,
+  },
+  eyeIconContainer: {
+    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionButtonsRow: {
     flexDirection: 'row',

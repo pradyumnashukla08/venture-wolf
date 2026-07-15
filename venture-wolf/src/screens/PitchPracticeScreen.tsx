@@ -4,7 +4,7 @@ import { StyleSheet, Text, View, TouchableOpacity, Animated } from 'react-native
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -15,7 +15,7 @@ import { ActivityIndicator, Alert } from 'react-native';
 
 export const PitchPracticeScreen = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet, thirdWidth } = useResponsiveLayout();
-  const { evaluationResult, processedDocIds } = useProfile();
+  const { evaluationResult, processedDocIds } = useProfileStore();
   
   const hasRequiredDocs = processedDocIds.includes('pitch_deck');
   

@@ -5,11 +5,11 @@ import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import { AIDisclaimer } from '../components/AIDisclaimer';
 
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 
 export const DeckDiagnosticScreen = ({ navigation }: any) => {
-  const { evaluationResult, processedDocIds } = useProfile();
+  const { evaluationResult, processedDocIds } = useProfileStore();
   
   // Dynamically generate issues from AI red flags
   const aiIssues = evaluationResult?.red_flags?.map((flag: string, index: number) => ({

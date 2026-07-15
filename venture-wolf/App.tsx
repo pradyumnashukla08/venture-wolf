@@ -6,9 +6,34 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from './src/constants/theme';
-import { ProfileProvider, useProfile } from './src/context/ProfileContext';
+import { ProfileBootstrapper } from './src/context/ProfileBootstrapper';
+import { useProfileStore } from './src/store/useProfileStore';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import * as Linking from 'expo-linking';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as Updates from 'expo-updates';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 1000 * 60 * 5, // 5 minutes cache
+    },
+  },
+});
+
+async function onFetchUpdateAsync() {
+  try {
+    const update = await Updates.checkForUpdateAsync();
+    if (update.isAvailable) {
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync();
+    }
+  } catch (error) {
+    console.error(`Error fetching latest Expo update: ${error}`);
+  }
+}
 
 // Screen Imports
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -31,6 +56,7 @@ import { MentorBookingScreen } from './src/screens/MentorBookingScreen';
 import { PitchPracticeScreen } from './src/screens/PitchPracticeScreen';
 import { GTMStrategyScreen } from './src/screens/GTMStrategyScreen';
 import { LegalDocsScreen } from './src/screens/LegalDocsScreen';
+import { FinanceScreen } from './src/screens/Finance/FinanceScreen';
 
 import { InvestorHomeFeed } from './src/screens/InvestorHomeFeed';
 import { DealFlowPipeline } from './src/screens/DealFlowPipeline';
@@ -43,7 +69,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function FounderTabs() {
-  const { profileImage } = useProfile();
+  const { profileImage } = useProfileStore();
   const { session } = useAuth();
   const avatarUrl = profileImage || session?.user?.user_metadata?.avatar_url;
 
@@ -86,7 +112,7 @@ function FounderTabs() {
 }
 
 function InvestorTabs() {
-  const { profileImage } = useProfile();
+  const { profileImage } = useProfileStore();
   const { session } = useAuth();
   const avatarUrl = profileImage || session?.user?.user_metadata?.avatar_url;
 
@@ -179,19 +205,28 @@ function RootStack() {
       <Stack.Screen name="MentorsDirectory" component={MentorsDirectoryScreen} options={{ headerShown: false }} />
       <Stack.Screen name="MentorBooking" component={MentorBookingScreen} options={{ headerShown: false }} />
       <Stack.Screen name="FounderProfile" component={FounderProfileEditor} options={{ title: 'Founder Profile', headerShown: false }} />
+      <Stack.Screen name="Finance" component={FinanceScreen} options={{ title: 'AI CFO Forecast', headerBackTitle: 'Back', headerShown: false }} />
     </Stack.Navigator>
   );
 }
 
 export default function App() {
+  React.useEffect(() => {
+    onFetchUpdateAsync();
+  }, []);
+
   return (
-    <AuthProvider>
-      <ProfileProvider>
-        <NavigationContainer linking={linking}>
-          <StatusBar style="light" />
-          <RootStack />
-        </NavigationContainer>
-      </ProfileProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <ProfileBootstrapper>
+            <NavigationContainer linking={linking}>
+              <StatusBar style="light" />
+              <RootStack />
+            </NavigationContainer>
+          </ProfileBootstrapper>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

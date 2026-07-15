@@ -2,39 +2,22 @@ import { Router, type Request, type Response } from 'express';
 import { supabaseAdmin } from '../config/supabase.js';
 import { evaluateStartup, transcribeAndEvaluatePitch } from '../services/groqService.js';
 import { parsePDF, parseExcel } from '../services/documentParser.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { validate, evaluateRequestSchema, pitchRequestSchema } from '../validators/schemas.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
 const router = Router();
 
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Request, res: Response): Promise<void> => {
   let rawDocuments: { type: string; mimeType: string; localPath: string }[] = [];
   try {
-    // Step 1: Auth Verification
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Missing or invalid Authorization header' });
-      return;
-    }
+    // userId injected by requireAuth middleware
+    const startupId = (req as AuthenticatedRequest).userId;
 
-    const token = authHeader.split(' ')[1];
-    const { data: userData, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !userData?.user) {
-      console.error('Auth verification failed:', authError);
-      res.status(401).json({ error: 'Unauthorized: Invalid token' });
-      return;
-    }
-
-    // Step 2: Data Ingestion & Extraction
+    // Step 1: Data Ingestion & Extraction (req.body validated by Zod)
     const { stage, pitchDeckPath, financialsPath, documents } = req.body;
-    const startupId = userData.user.id; // SECURITY FIX: Enforce authenticated user ID
-
-    if (!stage) {
-      res.status(400).json({ error: 'Missing required fields: stage' });
-      return;
-    }
 
     // Support legacy paths or new dynamic documents array
     const docsToProcess = documents || [];
@@ -168,31 +151,16 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 });
 
-router.post('/pitch', async (req: Request, res: Response): Promise<void> => {
+router.post('/pitch', requireAuth, validate(pitchRequestSchema), async (req: Request, res: Response): Promise<void> => {
   try {
-    // Step 1: Auth Verification
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Missing or invalid Authorization header' });
-      return;
-    }
+    // userId injected by requireAuth middleware
+    const userId = (req as AuthenticatedRequest).userId;
 
-    const token = authHeader.split(' ')[1];
-    const { data: userData, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !userData?.user) {
-      res.status(401).json({ error: 'Unauthorized: Invalid token' });
-      return;
-    }
-
+    // audioPath validated by Zod schema
     const { audioPath } = req.body;
-    if (!audioPath) {
-      res.status(400).json({ error: 'Missing required field: audioPath' });
-      return;
-    }
 
     // SECURITY FIX: Prevent IDOR / Path Traversal
-    if (!audioPath.startsWith(`${userData.user.id}/`) && !audioPath.startsWith(`pitches/${userData.user.id}/`)) {
+    if (!audioPath.startsWith(`${userId}/`) && !audioPath.startsWith(`pitches/${userId}/`)) {
       res.status(403).json({ error: 'Unauthorized: Cannot access this audio file' });
       return;
     }

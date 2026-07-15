@@ -7,13 +7,13 @@ import { theme } from '../constants/theme';
 import { FinancialForecastTable } from '../components/FinancialForecastTable';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import { AIDisclaimer } from '../components/AIDisclaimer';
-
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
+import type { FinancialMetrics } from '../types/evaluation';
 
 export const FinancialCommandCenter = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet } = useResponsiveLayout();
-  const { evaluationResult, processedDocIds } = useProfile();
+  const { evaluationResult, processedDocIds } = useProfileStore();
   
   const hasFinancials = processedDocIds.some(id => 
     ['fin_model', 'basic_pnl', 'three_stmt', 'hist_fin', 'bank_stmts', 'bva_sheet', 'audited_fin', 'trial_bal', 'spend_plan', 'basic_cap', 'std_cap'].includes(id)
@@ -31,16 +31,18 @@ export const FinancialCommandCenter = ({ navigation }: any) => {
     return `₹${value}`;
   };
 
-  const metrics = evaluationResult?.financial_metrics || {};
+  const metrics: Partial<FinancialMetrics> = evaluationResult?.financial_metrics || {};
 
+  const currentArr = metrics.arr || 0;
+  
   // Calculate dynamic projected impact
   const fundraiseValue = fundraise * 10000000; // Cr to raw
   const newBurn = (metrics.monthly_burn || 0) + (hires * (metrics.headcount_cost || 0));
   const newRunway = newBurn > 0 ? Math.round(((metrics.cash_balance || 0) + fundraiseValue) / newBurn) : metrics.default_runway || 0;
   const runwayDiff = newRunway - (metrics.default_runway || 0);
   
-  const targetArr = (metrics.arr || 0) * Math.pow(1 + (growth / 100), 12);
-  const arrGrowthPercent = metrics.arr > 0 ? Math.round(((targetArr - metrics.arr) / metrics.arr) * 100) : 0;
+  const targetArr = currentArr * Math.pow(1 + (growth / 100), 12);
+  const arrGrowthPercent = currentArr > 0 ? Math.round(((targetArr - currentArr) / currentArr) * 100) : 0;
 
   if (!evaluationResult || !hasFinancials) {
     return (

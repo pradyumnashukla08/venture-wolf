@@ -1,9 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import evaluateRoute from './routes/evaluate.js';
 import generateRoute from './routes/generate.js';
+import financeRoute from './routes/finance.js';
+import { globalErrorHandler, registerProcessGuards } from './middleware/errorHandler.js';
 
 dotenv.config();
 
@@ -20,9 +23,11 @@ const aiLimiter = rateLimit({
 });
 
 // Middleware
+app.use(helmet());
 app.use(cors({
-  origin: '*',
+  origin: ['https://app.venturewolf.com', 'venturewolf://'], // Restricted origin
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Bypass-Tunnel-Reminder'],
 }));
 app.use(express.json());
@@ -30,6 +35,7 @@ app.use(express.json());
 // Routes
 app.use('/api/evaluate', aiLimiter, evaluateRoute);
 app.use('/api/generate', aiLimiter, generateRoute);
+app.use('/api/finance', aiLimiter, financeRoute);
 
 // Root endpoint for Uptime monitors
 app.get('/', (req, res) => {
@@ -40,6 +46,12 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Venture Wolf Backend is running' });
 });
+
+// Global Error Handler — MUST be registered after all routes
+app.use(globalErrorHandler);
+
+// Register process-level crash guards before starting the server
+registerProcessGuards();
 
 // Start Server
 app.listen(PORT, '0.0.0.0', () => {

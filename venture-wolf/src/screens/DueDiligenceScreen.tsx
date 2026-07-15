@@ -4,13 +4,13 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { getAIPromptForStage } from '../services/aiPromptMatrix';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 
 export const DueDiligenceScreen = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet, halfWidth } = useResponsiveLayout();
-  const { startupStage, evaluationResult, processedDocIds } = useProfile();
+  const { startupStage, evaluationResult, processedDocIds } = useProfileStore();
   
   const hasFinancials = processedDocIds.some(id => 
     ['fin_model', 'basic_pnl', 'three_stmt', 'hist_fin', 'bank_stmts', 'bva_sheet', 'audited_fin', 'trial_bal', 'spend_plan', 'basic_cap', 'std_cap'].includes(id)

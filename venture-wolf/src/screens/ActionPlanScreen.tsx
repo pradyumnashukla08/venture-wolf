@@ -3,12 +3,12 @@ import * as Haptics from 'expo-haptics';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, useWindowDimensions, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { generateActionSteps, ActionStep } from '../utils/remediationMapper';
 
 export const ActionPlanScreen = ({ navigation }: any) => {
-  const { evaluationResult } = useProfile();
+  const { evaluationResult } = useProfileStore();
   const [tasks, setTasks] = useState<ActionStep[]>([]);
   const [pulseAnim] = useState(new Animated.Value(1));
 
@@ -78,34 +78,36 @@ export const ActionPlanScreen = ({ navigation }: any) => {
     </>
   );
 
-  const renderItem = ({ item: task }: { item: ActionStep }) => {
-    const getIconForType = () => {
-      if (task.type === 'financial') return 'cash-outline';
-      if (task.type === 'product') return 'cube-outline';
-      if (task.type === 'team') return 'people-outline';
-      return 'globe-outline'; // market
-    };
-
-    return (
-      <TouchableOpacity 
-        activeOpacity={0.7}
-        style={[styles.taskCard, task.isComplete && styles.taskCardComplete]}
-        onPress={() => toggleTask(task.id)}
-      >
-        <View style={styles.taskCardHeader}>
-          <View style={styles.taskIconBox}>
-            <Ionicons name={getIconForType()} size={20} color={task.isComplete ? '#10B981' : '#E2E8F0'} />
-          </View>
-          <Text style={[styles.taskTitle, task.isComplete && styles.textDimmed]}>{task.title}</Text>
-          
-          <View style={[styles.checkbox, task.isComplete && styles.checkboxActive]}>
-            {task.isComplete && <Ionicons name="checkmark" size={16} color="#0B0F19" />}
-          </View>
-        </View>
-        <Text style={[styles.taskDesc, task.isComplete && styles.textDimmed]}>{task.task}</Text>
-      </TouchableOpacity>
-    );
+  const getIconForType = (type: string) => {
+    if (type === 'financial') return 'cash-outline';
+    if (type === 'product') return 'cube-outline';
+    if (type === 'team') return 'people-outline';
+    return 'globe-outline'; // market
   };
+
+  const TaskCard = React.memo(({ task, onToggle }: { task: ActionStep, onToggle: (id: string) => void }) => (
+    <TouchableOpacity 
+      activeOpacity={0.7}
+      style={[styles.taskCard, task.isComplete && styles.taskCardComplete]}
+      onPress={() => onToggle(task.id)}
+    >
+      <View style={styles.taskCardHeader}>
+        <View style={styles.taskIconBox}>
+          <Ionicons name={getIconForType(task.type)} size={20} color={task.isComplete ? '#10B981' : '#E2E8F0'} />
+        </View>
+        <Text style={[styles.taskTitle, task.isComplete && styles.textDimmed]}>{task.title}</Text>
+        
+        <View style={[styles.checkbox, task.isComplete && styles.checkboxActive]}>
+          {task.isComplete && <Ionicons name="checkmark" size={16} color="#0B0F19" />}
+        </View>
+      </View>
+      <Text style={[styles.taskDesc, task.isComplete && styles.textDimmed]}>{task.task}</Text>
+    </TouchableOpacity>
+  ));
+
+  const renderItem = React.useCallback(({ item: task }: { item: ActionStep }) => {
+    return <TaskCard task={task} onToggle={toggleTask} />;
+  }, [toggleTask]);
 
   return (
     <View style={styles.wrapper}>

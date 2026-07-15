@@ -5,13 +5,14 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
-import { useProfile } from '../context/ProfileContext';
+import type { GTMStrategy } from '../types/evaluation';
+import { useProfileStore } from '../store/useProfileStore';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 import { AIDisclaimer } from '../components/AIDisclaimer';
 
 export const GTMStrategyScreen = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet } = useResponsiveLayout();
-  const { evaluationResult, processedDocIds } = useProfile();
+  const { evaluationResult, processedDocIds } = useProfileStore();
   
   const hasRequiredDocs = processedDocIds.includes('pitch_deck');
 
@@ -22,7 +23,9 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
     return `₹${value}`;
   };
 
-  const gtm = evaluationResult?.gtm_strategy || {};
+  const gtm: Partial<GTMStrategy> = evaluationResult?.gtm_strategy || {};
+  const channels = gtm.channels || [];
+  const experiments = gtm.experiments || [];
 
   if (!evaluationResult || !hasRequiredDocs) {
     return (
@@ -107,14 +110,14 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
         <View style={styles.listSection}>
           <Text style={styles.sectionTitle}>GROWTH CHANNELS</Text>
           <View style={styles.channelList}>
-            {gtm.channels?.map((channel: any, index: number) => {
+            {channels.map((channel: any, index: number) => {
               const isHigh = channel.status === 'Scaling';
               const isLow = channel.status === 'Saturated';
               const color = isHigh ? '#10B981' : isLow ? '#EF4444' : '#F59E0B';
               const bgColor = isHigh ? '#F0FDF4' : isLow ? '#FEF2F2' : '#FFFBEB';
               
               return (
-                <View key={index} style={[styles.channelRow, index === gtm.channels.length - 1 ? { borderBottomWidth: 0 } : {}]}>
+                <View key={index} style={[styles.channelRow, index === channels.length - 1 ? { borderBottomWidth: 0 } : {}]}>
                   <View style={styles.channelLeft}>
                     <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
                       <Ionicons name="analytics" size={20} color={color} />
@@ -130,7 +133,7 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
                 </View>
               );
             })}
-            {(!gtm.channels || gtm.channels.length === 0) && (
+            {(!channels || channels.length === 0) && (
               <Text style={{ textAlign: 'center', color: '#94A3B8', marginVertical: 20 }}>No channel data extracted</Text>
             )}
           </View>
@@ -140,7 +143,7 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
         <View style={styles.roadmapSection}>
           <Text style={styles.sectionTitle}>EXPERIMENT ROADMAP</Text>
           <View style={styles.timelineContainer}>
-            {gtm.experiments?.map((exp: any, index: number) => {
+            {experiments.map((exp: any, index: number) => {
               const isActive = exp.status === 'Active';
               return (
                 <React.Fragment key={index}>
@@ -164,11 +167,11 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
                       <Text style={styles.sprintDesc}>{exp.description}</Text>
                     </View>
                   </View>
-                  {index < gtm.experiments.length - 1 && <View style={styles.timelineLine} />}
+                  {index < experiments.length - 1 && <View style={styles.timelineLine} />}
                 </React.Fragment>
               );
             })}
-            {(!gtm.experiments || gtm.experiments.length === 0) && (
+            {(!experiments || experiments.length === 0) && (
               <Text style={{ textAlign: 'center', color: '#94A3B8', marginVertical: 20 }}>No experiments extracted</Text>
             )}
           </View>

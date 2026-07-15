@@ -4,7 +4,7 @@ import { StyleSheet, Text, View, TouchableOpacity, useWindowDimensions, LayoutAn
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
-import { useProfile } from '../context/ProfileContext';
+import { useProfileStore } from '../store/useProfileStore';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 
 const AccordionItem = ({ title, standard, flags, actionLabel }: any) => {
@@ -42,7 +42,7 @@ const AccordionItem = ({ title, standard, flags, actionLabel }: any) => {
 };
 
 export const LegalDocsScreen = ({ navigation }: any) => {
-  const { evaluationResult, processedDocIds } = useProfile();
+  const { evaluationResult, processedDocIds } = useProfileStore();
   
   const hasRequiredDocs = processedDocIds.includes('inc_docs');
 
