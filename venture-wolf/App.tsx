@@ -1,4 +1,5 @@
 import React from 'react';
+// Force Metro Bundler Deep Reload for Cache & UI fixes
 import { Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -24,6 +25,9 @@ const queryClient = new QueryClient({
 });
 
 async function onFetchUpdateAsync() {
+  if (__DEV__) {
+    return;
+  }
   try {
     const update = await Updates.checkForUpdateAsync();
     if (update.isAvailable) {

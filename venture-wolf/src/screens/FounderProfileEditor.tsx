@@ -21,7 +21,8 @@ const AISparkleInput = ({
   placeholder, 
   multiline = false, 
   contextData,
-  instruction
+  instruction,
+  keyboardType = 'default'
 }: { 
   label: string, 
   value: string, 
@@ -29,7 +30,8 @@ const AISparkleInput = ({
   placeholder: string, 
   multiline?: boolean, 
   contextData?: any,
-  instruction?: string
+  instruction?: string,
+  keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad' | 'url'
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -87,6 +89,7 @@ const AISparkleInput = ({
         onChangeText={onChangeText}
         textAlignVertical={multiline ? 'top' : 'center'}
         editable={!isProcessing}
+        keyboardType={keyboardType}
       />
     </View>
   );
@@ -282,7 +285,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>SECTOR / VERTICAL</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                {['FinTech', 'SaaS', 'DeepTech', 'Consumer', 'HealthTech'].map(sector => (
+                {['SaaS', 'FinTech', 'HealthTech', 'Consumer', 'Manufacturing', 'Services'].map(sector => (
                   <TouchableOpacity 
                     key={sector} 
                     activeOpacity={0.7}
@@ -403,11 +406,12 @@ export const FounderProfileEditor = ({ navigation }: any) => {
               <View style={{ width: halfWidth }}>
                 <AISparkleInput
                   label="COMMITTED SO FAR (₹)"
-                  placeholder="₹50 L"
+                  placeholder="e.g., 5000000"
                   value={formData.capitalCommitted}
-                  onChangeText={v => handleChange('capitalCommitted', v)}
+                  onChangeText={v => handleChange('capitalCommitted', v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
                   contextData={{ targetRaise: formData.targetRaise, sector: formData.sector }}
-                  instruction="Output ONLY a realistic number formatted in Indian currency representing capital already committed. For example: ₹50 L. Do NOT output any sentences, words, or explanations."
+                  instruction="Output ONLY a raw integer number representing capital already committed based on the target raise. For example: 5000000. Do NOT output currency symbols, commas, words, or text like 'L' or 'Cr'."
                 />
               </View>
             </View>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Platform, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { ProjectionsData } from './types';
 import { theme } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,22 +16,26 @@ interface ProjectionsDashboardProps {
 type Scenario = 'worstCase' | 'baseCase' | 'bestCase';
 
 const formatCurrency = (value: number) => {
-  // Simple Indian Rupee formatting helper
   if (isNaN(value)) return '₹0';
-  return new Intl.NumberFormat('en-IN', {
+  const isNegative = value < 0;
+  const formatted = new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(Math.abs(value));
+  return isNegative ? `(${formatted})` : formatted;
 };
 
 const formatPercentage = (value: number) => {
   if (isNaN(value)) return '0%';
-  return `${(value * 100).toFixed(1)}%`;
+  const isNegative = value < 0;
+  const formatted = `${(Math.abs(value) * 100).toFixed(1)}%`;
+  return isNegative ? `(${formatted})` : formatted;
 };
 
 export const ProjectionsDashboard: React.FC<ProjectionsDashboardProps> = ({ projections, assumptions, downloadUrl, highRiskOfRuin, onReset }) => {
   const [activeScenario, setActiveScenario] = useState<Scenario>('baseCase');
+  const navigation = useNavigation<any>();
 
   const handleDownload = async () => {
     try {
@@ -77,11 +82,13 @@ export const ProjectionsDashboard: React.FC<ProjectionsDashboardProps> = ({ proj
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onReset}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('FounderTabs')}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.darkText} />
         </TouchableOpacity>
         <Text style={styles.title}>AI Projections</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity style={styles.backButton} onPress={onReset}>
+          <Ionicons name="create-outline" size={24} color={theme.colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.segmentContainer}>
@@ -127,38 +134,62 @@ export const ProjectionsDashboard: React.FC<ProjectionsDashboardProps> = ({ proj
         )}
 
         <View style={styles.card}>
-          {/* Header Row */}
-          <View style={[styles.row, styles.headerRow]}>
-            <Text style={[styles.cell, styles.metricNameCell, styles.headerCell]}>Metric</Text>
-            <Text style={[styles.cell, styles.dataCell, styles.headerCell]}>Yr 1</Text>
-            <Text style={[styles.cell, styles.dataCell, styles.headerCell]}>Yr 3</Text>
-            <Text style={[styles.cell, styles.dataCell, styles.headerCell]}>Yr 5</Text>
-          </View>
-
-          {/* Data Rows */}
-          {displayMetrics.map((metricKey, index) => {
-            const dataRow = activeData[metricKey];
-            if (!dataRow) return null;
-            
-            const isPercent = metricKey.includes('%');
-            const formatFn = isPercent ? formatPercentage : formatCurrency;
-
-            return (
-              <View key={metricKey} style={[styles.row, index % 2 === 1 && styles.altRow]}>
-                <Text style={[styles.cell, styles.metricNameCell]} numberOfLines={1}>{metricKey.split('. ')[1] || metricKey}</Text>
-                <Text style={[styles.cell, styles.dataCell]}>{formatFn(dataRow[0])}</Text>
-                <Text style={[styles.cell, styles.dataCell]}>{formatFn(dataRow[2])}</Text>
-                <Text style={[styles.cell, styles.dataCell, styles.highlightCell]}>{formatFn(dataRow[4])}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+            <View>
+              {/* Header Row */}
+              <View style={[styles.row, styles.headerRow]}>
+                <Text style={[styles.cell, styles.metricNameCell, styles.headerCell]}>Metric</Text>
+                <Text style={[styles.cell, styles.dataCell, styles.headerCell]}>Year 1</Text>
+                <Text style={[styles.cell, styles.dataCell, styles.headerCell]}>Year 2</Text>
+                <Text style={[styles.cell, styles.dataCell, styles.headerCell]}>Year 3</Text>
+                <Text style={[styles.cell, styles.dataCell, styles.headerCell]}>Year 4</Text>
+                <Text style={[styles.cell, styles.dataCell, styles.headerCell]}>Year 5</Text>
               </View>
-            );
-          })}
+
+              {/* Data Rows */}
+              {displayMetrics.map((metricKey, index) => {
+                const dataRow = activeData[metricKey];
+                if (!dataRow) return null;
+                
+                const isPercent = metricKey.includes('%');
+                const formatFn = isPercent ? formatPercentage : formatCurrency;
+
+                const renderCell = (val: number, isLast: boolean = false) => {
+                  const isNegative = val < 0;
+                  return (
+                    <Text style={[
+                      styles.cell, 
+                      styles.dataCell, 
+                      isLast && styles.highlightCell,
+                      isNegative && { color: '#EF4444' } // Standard red color for negative financials
+                    ]}>
+                      {formatFn(val)}
+                    </Text>
+                  );
+                };
+
+                return (
+                  <View key={metricKey} style={[styles.row, index % 2 === 1 && styles.altRow]}>
+                    <Text style={[styles.cell, styles.metricNameCell]} numberOfLines={1}>{metricKey.split('. ')[1] || metricKey}</Text>
+                    {renderCell(dataRow[0])}
+                    {renderCell(dataRow[1])}
+                    {renderCell(dataRow[2])}
+                    {renderCell(dataRow[3])}
+                    {renderCell(dataRow[4], true)}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.downloadButton} onPress={handleDownload}>
-          <Ionicons name="download-outline" size={20} color="#0F172A" style={{ marginRight: 8 }} />
-          <Text style={styles.downloadButtonText}>Download Full Excel Model</Text>
+        <TouchableOpacity style={styles.returnButton} onPress={() => navigation.navigate('FounderTabs', { screen: 'Home' })}>
+          <Text style={styles.returnButtonText}>Return to Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.iconButton} onPress={handleDownload}>
+          <Ionicons name="download-outline" size={24} color="#0F172A" />
         </TouchableOpacity>
       </View>
     </View>
@@ -176,6 +207,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 20,
   },
   backButton: {
     padding: theme.spacing.xs,
@@ -269,8 +301,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.darkBorder,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
   },
   altRow: {
     backgroundColor: 'rgba(255,255,255,0.02)',
@@ -278,21 +308,27 @@ const styles = StyleSheet.create({
   headerRow: {
     backgroundColor: 'rgba(56, 189, 248, 0.1)', // Light primary tint
     borderBottomWidth: 2,
+    borderBottomColor: theme.colors.primary,
   },
   cell: {
     fontSize: 13,
     color: theme.colors.darkText,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.darkBorder,
+    justifyContent: 'center',
   },
   headerCell: {
     fontWeight: 'bold',
     color: theme.colors.primary,
   },
   metricNameCell: {
-    flex: 2,
+    width: 140,
     fontWeight: '600',
   },
   dataCell: {
-    flex: 1,
+    width: 100,
     textAlign: 'right',
   },
   highlightCell: {
@@ -304,18 +340,29 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.colors.darkBorder,
     backgroundColor: theme.colors.darkBackground,
-  },
-  downloadButton: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.primary,
+    gap: 12,
+  },
+  returnButton: {
+    flex: 1,
+    backgroundColor: theme.colors.darkSurface,
+    borderWidth: 1,
+    borderColor: theme.colors.darkBorder,
     paddingVertical: 16,
     borderRadius: theme.borderRadius.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  downloadButtonText: {
-    color: '#0F172A',
+  returnButtonText: {
+    color: theme.colors.darkText,
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  iconButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 24,
+    borderRadius: theme.borderRadius.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

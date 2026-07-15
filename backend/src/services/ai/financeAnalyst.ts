@@ -61,7 +61,30 @@ If ARCHETYPE is SERVICES:
 --- SCENARIO GENERATION RULES ---
 - The "Worst Case" must be punitive and represent severe operational friction to test founder runway survival.
 - You must also generate an "estimatedValuation" (INR) and "equityDilutionPct" for each scenario based on the target raise from the Founder Profile. Base case should reflect the founder's requested valuation cap, Best case could be higher (lower dilution), and Worst case should enforce severe dilution (down-round valuation) to show the reality of underperformance.
-- Return ONLY a valid JSON object matching the exact provided schema. No markdown formatting, no conversational text.
+- Return ONLY a valid JSON object matching the exact format below. No markdown formatting, no conversational text.
+
+EXPECTED JSON SCHEMA:
+{
+  "Worst": {
+    "dpiitTaxHolidayActive": 0,
+    "employerPfBurden": 0.12,
+    "interestRateOnDebt": 0.15,
+    "annualInflationRate": 0.08,
+    "initialMetric": 1000,
+    "growthRateOrYield": 0.05,
+    "pricingMetric": 0.10,
+    "cogsMargin": 0.30,
+    "annualPayrollIncrease": 0.10,
+    "marketingSpendPct": 0.10,
+    "receivableDays": 60,
+    "inventoryDays": 0,
+    "payableDays": 30,
+    "estimatedValuation": 10000000,
+    "equityDilutionPct": 0.20
+  },
+  "Base": { /* same structure */ },
+  "Best": { /* same structure */ }
+}
 `;
 
   const response = await ai.models.generateContent({
@@ -77,5 +100,38 @@ If ARCHETYPE is SERVICES:
     throw new Error('AI Engine failed to generate institutional-grade assumptions.');
   }
 
-  return JSON.parse(response.text) as MarketAssumptions;
+  let cleanText = response.text;
+  if (cleanText.startsWith('```json')) {
+    cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '').trim();
+  } else if (cleanText.startsWith('```')) {
+    cleanText = cleanText.replace(/^```/, '').replace(/```$/, '').trim();
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleanText);
+  } catch (err) {
+    throw new Error('AI Engine returned invalid JSON.');
+  }
+
+  // Normalize keys to handle AI hallucinations (e.g., 'worstCase', 'worst', 'Worst')
+  const getScenario = (obj: any, keys: string[]) => {
+    for (const key of keys) {
+      if (obj[key]) return obj[key];
+    }
+    return null;
+  };
+
+  const normalizedAssumptions = {
+    Worst: getScenario(parsed, ['Worst', 'worst', 'worstCase', 'WorstCase', 'worst_case']),
+    Base: getScenario(parsed, ['Base', 'base', 'baseCase', 'BaseCase', 'base_case']),
+    Best: getScenario(parsed, ['Best', 'best', 'bestCase', 'BestCase', 'best_case']),
+  };
+
+  if (!normalizedAssumptions.Worst || !normalizedAssumptions.Base || !normalizedAssumptions.Best) {
+    console.error('Failed to parse AI output. Raw AI Response:', cleanText);
+    throw new Error('AI Engine failed to return all 3 scenarios (Worst, Base, Best).');
+  }
+
+  return normalizedAssumptions as MarketAssumptions;
 }

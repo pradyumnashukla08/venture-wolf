@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 
 const LOADING_STATES = [
   "Sanitizing Data...",
@@ -172,15 +173,13 @@ export const DataRoomScreen = ({ navigation }: any) => {
 
         const filePath = `${session.user.id}/${Date.now()}_${asset.name.replace(/\s/g, '_')}`;
 
-        // SECURITY & PERFORMANCE FIX: Bypass Base64 to prevent OOM on large PDFs.
-        // Fetching the local URI creates a native Blob reference without loading
-        // the entire file into the JavaScript string heap.
-        const response = await fetch(asset.uri);
-        const blob = await response.blob();
+        // Use base64-arraybuffer because fetch(asset.uri) throws "Network request failed" on React Native
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: 'base64' });
+        const arrayBuffer = decode(base64);
 
         const { data, error } = await supabase.storage
           .from('data_room')
-          .upload(filePath, blob, {
+          .upload(filePath, arrayBuffer, {
             contentType: asset.mimeType || 'application/octet-stream',
             upsert: true
           });

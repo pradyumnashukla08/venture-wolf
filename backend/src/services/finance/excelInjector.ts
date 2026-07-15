@@ -37,6 +37,7 @@ export async function injectAndExtractFinancials(
 
   scenarios.forEach(({ name, col }) => {
     // Row 6 is static Corporate Tax Rate (0.25) from our audit, row 7 is DPIIT toggle
+    wsAssumptions.getCell(`${col}6`).value = 0.25;
     wsAssumptions.getCell(`${col}7`).value = name.dpiitTaxHolidayActive;
     wsAssumptions.getCell(`${col}8`).value = name.interestRateOnDebt;
     wsAssumptions.getCell(`${col}9`).value = name.annualInflationRate;
@@ -108,13 +109,18 @@ export async function injectAndExtractFinancials(
       upsert: true
     });
 
-  if (uploadError) throw uploadError;
-
-  // Retrieve public asset download link URL string response
-  const { data: urlData } = supabase.storage.from('financial_models').getPublicUrl(fileName);
+  let downloadUrl = '';
+  
+  if (uploadError) {
+    console.warn('[STORAGE WARNING] Failed to upload Excel model to Supabase. Ensure the "financial_models" bucket exists and is public.', uploadError.message);
+  } else {
+    // Retrieve public asset download link URL string response
+    const { data: urlData } = supabase.storage.from('financial_models').getPublicUrl(fileName);
+    downloadUrl = urlData.publicUrl;
+  }
 
   return {
     summaryData: extractedDashboard,
-    downloadUrl: urlData.publicUrl
+    downloadUrl
   };
 }

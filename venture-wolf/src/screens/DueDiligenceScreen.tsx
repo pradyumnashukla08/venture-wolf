@@ -15,7 +15,7 @@ export const DueDiligenceScreen = ({ navigation }: any) => {
   const hasFinancials = processedDocIds.some(id => 
     ['fin_model', 'basic_pnl', 'three_stmt', 'hist_fin', 'bank_stmts', 'bva_sheet', 'audited_fin', 'trial_bal', 'spend_plan', 'basic_cap', 'std_cap'].includes(id)
   );
-  const hasRequiredDocs = processedDocIds.includes('pitch_deck') && hasFinancials;
+  const hasRequiredDocs = processedDocIds.includes('pitch_deck');
   
   const aiPrompt = getAIPromptForStage(startupStage);
   const redFlags = Array.isArray(evaluationResult?.red_flags) && evaluationResult.red_flags.length > 0 
@@ -32,7 +32,7 @@ export const DueDiligenceScreen = ({ navigation }: any) => {
         </View>
         <EcosystemEmptyState 
           featureName="AI Due Diligence" 
-          requiredDocument="Pitch Deck & Financials" 
+          requiredDocument="Pitch Deck" 
           iconName="shield-checkmark-outline" 
         />
       </View>

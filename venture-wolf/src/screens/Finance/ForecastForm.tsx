@@ -1,16 +1,52 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform, StatusBar } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ForecastRequest } from './types';
 import { theme } from '../../constants/theme';
 
 interface ForecastFormProps {
   onSubmit: (data: ForecastRequest) => void;
+  onBack: () => void;
 }
 
-export const ForecastForm: React.FC<ForecastFormProps> = ({ onSubmit }) => {
+export const ForecastForm: React.FC<ForecastFormProps> = ({ onSubmit, onBack }) => {
   const [companyName, setCompanyName] = useState('');
   const [archetype, setArchetype] = useState<ForecastRequest['archetype']>('SAAS');
   const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    const loadProfileData = async () => {
+      try {
+        let cached = null;
+        if (Platform.OS === 'web') {
+          cached = window.localStorage.getItem('@draft_profile_cache');
+        } else {
+          cached = await AsyncStorage.getItem('@draft_profile_cache').catch(() => null);
+        }
+        
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.companyName) setCompanyName(parsed.companyName);
+          if (parsed.pitch) setDescription(parsed.pitch);
+          
+          if (parsed.sector) {
+            const sector = parsed.sector.toUpperCase();
+            if (sector === 'MANUFACTURING') {
+              setArchetype('MANUFACTURING');
+            } else if (sector === 'SERVICES') {
+              setArchetype('SERVICES');
+            } else {
+              setArchetype('SAAS');
+            }
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    loadProfileData();
+  }, []);
 
   const handleSubmit = () => {
     if (!companyName.trim()) {
@@ -24,25 +60,16 @@ export const ForecastForm: React.FC<ForecastFormProps> = ({ onSubmit }) => {
     onSubmit({ companyName, archetype, description });
   };
 
-  const renderArchetypeButton = (type: ForecastRequest['archetype']) => {
-    const isActive = archetype === type;
-    return (
-      <TouchableOpacity 
-        style={[styles.segmentButton, isActive && styles.segmentButtonActive]}
-        onPress={() => setArchetype(type)}
-        key={type}
-      >
-        <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
-          {type}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}>
-        <Text style={styles.title}>Financial Forecast</Text>
+      <View style={styles.headerContainer}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.darkText} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Financial Forecast</Text>
+          <View style={{ width: 32 }} />
+        </View>
         <Text style={styles.subtitle}>Let the AI CFO generate your 60-month model</Text>
       </View>
 
@@ -58,11 +85,14 @@ export const ForecastForm: React.FC<ForecastFormProps> = ({ onSubmit }) => {
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>BUSINESS ARCHETYPE</Text>
+        <Text style={styles.label}>BUSINESS ARCHETYPE (LOCKED TO PROFILE)</Text>
         <View style={styles.segmentContainer}>
-          {renderArchetypeButton('SAAS')}
-          {renderArchetypeButton('MANUFACTURING')}
-          {renderArchetypeButton('SERVICES')}
+          <View style={[styles.segmentButton, styles.segmentButtonActive, { flex: 1, opacity: 0.9 }]}>
+            <Ionicons name="lock-closed" size={12} color="#0F172A" style={{ marginRight: 6 }} />
+            <Text style={[styles.segmentText, styles.segmentTextActive, { fontSize: 12 }]}>
+              {archetype}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -91,21 +121,32 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: theme.spacing.lg,
   },
-  header: {
+  headerContainer: {
     marginBottom: theme.spacing.xl,
-    alignItems: 'center',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: theme.colors.darkText,
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: theme.spacing.xs,
   },
+  backButton: {
+    padding: theme.spacing.xs,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.darkText,
+    textAlign: 'center',
+    flex: 1,
+  },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: theme.colors.primary,
     fontWeight: '600',
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   formGroup: {
     marginBottom: theme.spacing.lg,
@@ -148,9 +189,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
   },
   segmentText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
     color: theme.colors.darkTextMuted,
+    textAlign: 'center',
   },
   segmentTextActive: {
     color: '#0F172A', // Dark text for contrast against primary color
