@@ -401,7 +401,8 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>EQUITY OFFERED (%)</Text>
-                <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., 10%" placeholderTextColor="#94A3B8" value={formData.equityOffered} onChangeText={v => handleChange('equityOffered', v)} keyboardType="numeric" />
+                <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., 10-15%" placeholderTextColor="#94A3B8" value={formData.equityOffered} onChangeText={v => handleChange('equityOffered', v)} keyboardType="numeric" />
+                <Text style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>Typical range: 10% to 15%</Text>
               </View>
               <View style={{ width: halfWidth }}>
                 <AISparkleInput

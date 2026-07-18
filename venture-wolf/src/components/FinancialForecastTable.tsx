@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   dataCell: {
-    width: 140, // Keeps columns uniformly aligned and cleanly sized without stretching to screen width
+    width: 180, // Keeps columns uniformly aligned and cleanly sized without stretching to screen width
     justifyContent: 'center',
     alignItems: 'flex-end',
     paddingHorizontal: 16,

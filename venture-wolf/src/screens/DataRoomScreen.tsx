@@ -217,6 +217,35 @@ export const DataRoomScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleDelete = async (docId: string, path: string) => {
+    Alert.alert(
+      "Delete Document",
+      "Are you sure you want to delete this document?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase.storage.from('data_room').remove([path]);
+              if (error) {
+                Alert.alert("Delete Failed", "Could not remove the file from storage.");
+                return;
+              }
+              setUploadedDocs(prev => prev.filter(d => d.id !== docId));
+            } catch (e: any) {
+              Alert.alert("Error", e.message);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <View style={styles.wrapper}>
       <ResponsiveScrollContainer contentContainerStyle={styles.container}>
@@ -251,12 +280,20 @@ export const DataRoomScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
 
                 {isUploaded && uploadedDoc?.path && (
-                  <TouchableOpacity 
-                    style={{ position: 'absolute', top: 12, right: 12, backgroundColor: '#F0FDF4', padding: 8, borderRadius: 20 }}
-                    onPress={() => handlePreview(uploadedDoc.path)}
-                  >
-                    <Ionicons name="eye" size={20} color="#10B981" />
-                  </TouchableOpacity>
+                  <View style={{ position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity 
+                      style={{ backgroundColor: '#F0FDF4', padding: 8, borderRadius: 20 }}
+                      onPress={() => handlePreview(uploadedDoc.path!)}
+                    >
+                      <Ionicons name="eye" size={20} color="#10B981" />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={{ backgroundColor: '#FEF2F2', padding: 8, borderRadius: 20 }}
+                      onPress={() => handleDelete(doc.id, uploadedDoc.path!)}
+                    >
+                      <Ionicons name="trash" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             );
