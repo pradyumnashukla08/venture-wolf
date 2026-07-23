@@ -22,7 +22,8 @@ const AISparkleInput = ({
   multiline = false, 
   contextData,
   instruction,
-  keyboardType = 'default'
+  keyboardType = 'default',
+  description
 }: { 
   label: string, 
   value: string, 
@@ -31,7 +32,8 @@ const AISparkleInput = ({
   multiline?: boolean, 
   contextData?: any,
   instruction?: string,
-  keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad' | 'url'
+  keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad' | 'url',
+  description?: string
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -91,6 +93,7 @@ const AISparkleInput = ({
         editable={!isProcessing}
         keyboardType={keyboardType}
       />
+      {description && <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{description}</Text>}
     </View>
   );
 };
@@ -124,6 +127,23 @@ export const FounderProfileEditor = ({ navigation }: any) => {
           
 
 
+          {/* TOP NAV */}
+          <View style={styles.topNavRow}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={24} color="#0F172A" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              activeOpacity={0.7} 
+              onPress={async () => {
+                await signOut();
+                navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+              }} 
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FCA5A5' }}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            </TouchableOpacity>
+          </View>
+
           {/* HEADER */}
           <View style={styles.profileHeaderBlock}>
             <View style={styles.profileHeaderImageContainer}>
@@ -144,23 +164,6 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             <Text style={styles.profileHeaderRole}>
               {formData.role || 'CEO'}, {formData.companyName || 'Startup'}
             </Text>
-            
-            {isSaving ? (
-              <Text style={styles.savingBadge}>SYNCING DRAFT...</Text>
-            ) : (
-              <Text style={styles.savedBadge}>DRAFT SAVED OFFLINE ✓</Text>
-            )}
-
-            <TouchableOpacity 
-              activeOpacity={0.7} 
-              onPress={async () => {
-                await signOut();
-                navigation.reset({ index: 0, routes: [{ name: 'FounderTabs' }] });
-              }} 
-              style={{ marginTop: 16, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' }}
-            >
-              <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 12 }}>Sign Out</Text>
-            </TouchableOpacity>
           </View>
 
           {/* SECTION 1: FOUNDER IDENTITY */}
@@ -314,6 +317,22 @@ export const FounderProfileEditor = ({ navigation }: any) => {
               </View>
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>BASE CURRENCY</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                {['₹ (INR)', '$ (USD)', '€ (EUR)', '£ (GBP)'].map(curr => (
+                  <TouchableOpacity 
+                    key={curr} 
+                    activeOpacity={0.7}
+                    onPress={() => handleChange('currency', curr)}
+                    style={[styles.outlineButton, { backgroundColor: formData.currency === curr ? '#0F172A' : 'transparent', borderColor: formData.currency === curr ? '#0F172A' : '#E2E8F0' }]}
+                  >
+                    <Text style={[styles.outlineButtonText, { color: formData.currency === curr ? '#FFF' : '#475569' }]}>{curr}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             <AISparkleInput 
               label="ONE-LINER PITCH" 
               placeholder="Explain what you do in one clear sentence..." 
@@ -333,31 +352,37 @@ export const FounderProfileEditor = ({ navigation }: any) => {
               <View style={{ width: thirdWidth }}>
                 <AISparkleInput 
                   label="TAM (Total Addressable Market)" 
-                  placeholder="₹500 Cr" 
+                  placeholder="e.g., 5000000000" 
                   value={formData.tam} 
-                  onChangeText={v => handleChange('tam', v)}
-                  contextData={{ sector: formData.sector, pitch: formData.pitch }}
-                  instruction="Output ONLY a number formatted in Indian currency. For example: ₹1,500 Cr. Do NOT output any sentences, words, or explanations."
+                  onChangeText={v => handleChange('tam', v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                  contextData={{ sector: formData.sector, pitch: formData.pitch, currency: formData.currency }}
+                  instruction="Output ONLY a raw integer number representing the TAM. For example: 5000000000. Do NOT output currency symbols, text, or explanations."
+                  description="Total revenue opportunity if 100% market share is achieved."
                 />
               </View>
               <View style={{ width: thirdWidth }}>
                 <AISparkleInput 
                   label="SAM (Serviceable Available Market)" 
-                  placeholder="₹150 Cr" 
+                  placeholder="e.g., 1500000000" 
                   value={formData.sam} 
-                  onChangeText={v => handleChange('sam', v)}
-                  contextData={{ sector: formData.sector, pitch: formData.pitch, tam: formData.tam }}
-                  instruction="Output ONLY a number formatted in Indian currency representing the SAM. For example: ₹150 Cr. Do NOT output any sentences, words, or explanations."
+                  onChangeText={v => handleChange('sam', v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                  contextData={{ sector: formData.sector, pitch: formData.pitch, tam: formData.tam, currency: formData.currency }}
+                  instruction="Output ONLY a raw integer number representing the SAM. For example: 1500000000. Do NOT output currency symbols, text, or explanations."
+                  description="The segment of the TAM targeted by your products/services."
                 />
               </View>
               <View style={{ width: thirdWidth }}>
                 <AISparkleInput 
                   label="SOM (Serviceable Obtainable Market)" 
-                  placeholder="₹25 Cr" 
+                  placeholder="e.g., 250000000" 
                   value={formData.som} 
-                  onChangeText={v => handleChange('som', v)}
-                  contextData={{ sector: formData.sector, pitch: formData.pitch, tam: formData.tam, sam: formData.sam }}
-                  instruction="Output ONLY a number formatted in Indian currency representing the SOM. For example: ₹25 Cr. Do NOT output any sentences, words, or explanations."
+                  onChangeText={v => handleChange('som', v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                  contextData={{ sector: formData.sector, pitch: formData.pitch, tam: formData.tam, sam: formData.sam, currency: formData.currency }}
+                  instruction="Output ONLY a raw integer number representing the SOM. For example: 250000000. Do NOT output currency symbols, text, or explanations."
+                  description="The realistic portion of the SAM you can capture."
                 />
               </View>
             </View>
@@ -381,6 +406,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
               onChangeText={v => handleChange('distributionMoat', v)}
               contextData={{ competitors: [formData.competitor1, formData.competitor2, formData.competitor3], sector: formData.sector, pitch: formData.pitch }}
               instruction="Write ONLY 1-2 short sentences defining the distribution moat. Do NOT write a paragraph."
+              description="Your unique advantage in acquiring customers at a lower cost or faster rate than competitors."
             />
           </View>
 
@@ -390,29 +416,32 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             
             <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
-                <Text style={styles.label}>TARGET RAISE (₹)</Text>
+                <Text style={styles.label}>{`TARGET RAISE (${(formData.currency || '₹ (INR)').split(' ')[0]})`}</Text>
                 <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., 2000000" placeholderTextColor="#94A3B8" value={formData.targetRaise} onChangeText={v => handleChange('targetRaise', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
+                <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>Total capital you are looking to raise in this round.</Text>
               </View>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
-                <Text style={styles.label}>VALUATION CAP (₹)</Text>
+                <Text style={styles.label}>{`VALUATION CAP (${(formData.currency || '₹ (INR)').split(' ')[0]})`}</Text>
                 <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., 20000000" placeholderTextColor="#94A3B8" value={formData.valuationCap} onChangeText={v => handleChange('valuationCap', v.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
+                <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>Maximum valuation at which your SAFE/Note will convert.</Text>
               </View>
             </View>
             <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>EQUITY OFFERED (%)</Text>
                 <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., 10-15%" placeholderTextColor="#94A3B8" value={formData.equityOffered} onChangeText={v => handleChange('equityOffered', v)} keyboardType="numeric" />
-                <Text style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>Typical range: 10% to 15%</Text>
+                <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>Percentage of company being sold. Typical range: 10% to 15%.</Text>
               </View>
               <View style={{ width: halfWidth }}>
                 <AISparkleInput
-                  label="COMMITTED SO FAR (₹)"
+                  label={`COMMITTED SO FAR (${(formData.currency || '₹ (INR)').split(' ')[0]})`}
                   placeholder="e.g., 5000000"
                   value={formData.capitalCommitted}
                   onChangeText={v => handleChange('capitalCommitted', v.replace(/[^0-9]/g, ''))}
                   keyboardType="numeric"
-                  contextData={{ targetRaise: formData.targetRaise, sector: formData.sector }}
+                  contextData={{ targetRaise: formData.targetRaise, sector: formData.sector, currency: formData.currency }}
                   instruction="Output ONLY a raw integer number representing capital already committed based on the target raise. For example: 5000000. Do NOT output currency symbols, commas, words, or text like 'L' or 'Cr'."
+                  description="Amount of the target raise already committed by investors."
                 />
               </View>
             </View>
@@ -431,35 +460,40 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       placeholder="e.g., 500"
                       value={formData.waitlistCount}
                       onChangeText={v => handleChange('waitlistCount', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
                       contextData={{ stage: formData.stage }}
-                      instruction="Generate a realistic waitlist count for a Pre-Seed startup. Output ONLY the number."
+                      instruction="Generate a realistic waitlist count for a Pre-Seed startup. Output ONLY the raw integer number."
+                      description="Number of potential customers who have signed up."
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
                       label="BETA CONVERSION (%)"
-                      placeholder="e.g., 10%"
+                      placeholder="e.g., 10"
                       value={formData.betaConversion}
-                      onChangeText={v => handleChange('betaConversion', v)}
+                      onChangeText={v => handleChange('betaConversion', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
                       contextData={{ stage: formData.stage }}
-                      instruction="Generate a realistic beta conversion rate percentage. Output ONLY the percentage."
+                      instruction="Generate a realistic beta conversion rate percentage. Output ONLY the raw integer number."
+                      description="Percentage of waitlist users converting to active users."
                     />
                   </View>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>PRODUCT STATUS</Text>
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                  <View style={{ flexDirection: 'column', gap: 8, marginTop: 4 }}>
                     {['Concept Only', 'Mockups', 'Functional MVP'].map(status => (
                       <TouchableOpacity 
                         key={status} 
                         activeOpacity={0.7}
                         onPress={() => handleChange('productStatus', status)}
-                        style={[styles.outlineButton, { flex: 1, backgroundColor: formData.productStatus === status ? '#0F172A' : 'transparent', borderColor: formData.productStatus === status ? '#0F172A' : '#E2E8F0', paddingHorizontal: 4 }]}
+                        style={[styles.outlineButton, { backgroundColor: formData.productStatus === status ? '#0F172A' : 'transparent', borderColor: formData.productStatus === status ? '#0F172A' : '#E2E8F0', paddingVertical: 12 }]}
                       >
-                        <Text style={[styles.outlineButtonText, { color: formData.productStatus === status ? '#FFF' : '#475569', fontSize: 11 }]} numberOfLines={1}>{status}</Text>
+                        <Text style={[styles.outlineButtonText, { color: formData.productStatus === status ? '#FFF' : '#475569', fontSize: 13 }]}>{status}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
+                  <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 8 }}>Current stage of your product's development.</Text>
                 </View>
                 <AISparkleInput
                   label="THE PROBLEM (Validation)"
@@ -469,6 +503,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   multiline={true}
                   contextData={{ sector: formData.sector, pitch: formData.pitch }}
                   instruction="Write a concise 2-sentence description of a critical problem in this sector and how it's validated."
+                  description="The pain point your product addresses and how you validated it."
                 />
                 <AISparkleInput
                   label="THE TEAM (Capability)"
@@ -478,6 +513,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   multiline={true}
                   contextData={{ sector: formData.sector, pitch: formData.pitch }}
                   instruction="Write a concise 2-sentence description of an ideal founding team's expertise for this startup."
+                  description="Why your team has the right expertise to execute this idea."
                 />
                 <View style={{ width: halfWidth }}>
                   <AISparkleInput
@@ -485,8 +521,10 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                     placeholder="e.g., 6"
                     value={formData.runway}
                     onChangeText={v => handleChange('runway', v.replace(/[^0-9]/g, ''))}
+                    keyboardType="numeric"
                     contextData={{ stage: formData.stage }}
-                    instruction="Generate a realistic runway in months for a Pre-Seed startup. Output ONLY the number (e.g., 9)."
+                    instruction="Generate a realistic runway in months for a Pre-Seed startup. Output ONLY the raw integer number (e.g., 9)."
+                    description="Number of months your current cash will last."
                   />
                 </View>
               </>
@@ -497,22 +535,26 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                 <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="CURRENT ARR / MRR (₹)"
-                      placeholder="e.g., ₹5 L"
+                      label={`CURRENT ARR / MRR (${(formData.currency || '₹ (INR)').split(' ')[0]})`}
+                      placeholder="e.g., 500000"
                       value={formData.currentMrr}
-                      onChangeText={v => handleChange('currentMrr', v)}
-                      contextData={{ sector: formData.sector, stage: formData.stage }}
-                      instruction="Generate a realistic ARR/MRR for a Seed startup. Output ONLY the number in Indian currency (e.g., ₹5 L)."
+                      onChangeText={v => handleChange('currentMrr', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
+                      contextData={{ sector: formData.sector, stage: formData.stage, currency: formData.currency }}
+                      instruction="Generate a realistic ARR/MRR for a Seed startup. Output ONLY the raw integer number."
+                      description="Annual or Monthly Recurring Revenue."
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
                       label="ACTIVE USERS"
-                      placeholder="e.g., 1500 users"
+                      placeholder="e.g., 1500"
                       value={formData.userTraction}
-                      onChangeText={v => handleChange('userTraction', v)}
+                      onChangeText={v => handleChange('userTraction', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
                       contextData={{ sector: formData.sector, stage: formData.stage }}
-                      instruction="Generate realistic user/client traction for a Seed startup. Output ONLY a short phrase (e.g., 1500 users, or 10 Enterprise Clients)."
+                      instruction="Generate realistic user/client traction for a Seed startup. Output ONLY the raw integer number (e.g., 1500)."
+                      description="Total active users or clients currently on the platform."
                     />
                   </View>
                 </View>
@@ -520,32 +562,38 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
                       label="MOM GROWTH %"
-                      placeholder="e.g., 15%"
+                      placeholder="e.g., 15"
                       value={formData.momGrowth}
-                      onChangeText={v => handleChange('momGrowth', v)}
+                      onChangeText={v => handleChange('momGrowth', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
                       contextData={{ stage: formData.stage }}
-                      instruction="Generate a realistic Month-over-Month growth rate for a Seed startup. Output ONLY the percentage (e.g., 15%)."
+                      instruction="Generate a realistic Month-over-Month growth rate for a Seed startup. Output ONLY the raw integer number (e.g., 15)."
+                      description="Month-over-Month Growth."
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
                       label="GROSS MARGIN %"
-                      placeholder="e.g., 70%"
+                      placeholder="e.g., 70"
                       value={formData.grossMargin}
-                      onChangeText={v => handleChange('grossMargin', v)}
+                      onChangeText={v => handleChange('grossMargin', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
                       contextData={{ sector: formData.sector }}
-                      instruction="Generate a realistic Gross Margin percentage for this sector. Output ONLY the percentage (e.g., 70%)."
+                      instruction="Generate a realistic Gross Margin percentage for this sector. Output ONLY the raw integer number (e.g., 70)."
+                      description="Revenue minus cost of goods sold, divided by revenue."
                     />
                   </View>
                 </View>
                 <View style={{ width: halfWidth }}>
                   <AISparkleInput
-                    label="CUSTOMER ACQUISITION COST (CAC) ₹"
-                    placeholder="e.g., ₹500"
+                    label={`CUSTOMER ACQUISITION COST (CAC) ${(formData.currency || '₹ (INR)').split(' ')[0]}`}
+                    placeholder="e.g., 500"
                     value={formData.cac}
-                    onChangeText={v => handleChange('cac', v)}
-                    contextData={{ sector: formData.sector }}
-                    instruction="Generate a realistic CAC in Indian currency for this sector. Output ONLY the value (e.g., ₹500)."
+                    onChangeText={v => handleChange('cac', v.replace(/[^0-9]/g, ''))}
+                    keyboardType="numeric"
+                    contextData={{ sector: formData.sector, currency: formData.currency }}
+                    instruction="Generate a realistic CAC for this sector. Output ONLY the raw integer number (e.g., 500)."
+                    description="Cost to acquire a single customer."
                   />
                 </View>
               </>
@@ -556,22 +604,26 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                 <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="MRR (₹)"
-                      placeholder="e.g., ₹25 L"
+                      label={`MRR (${(formData.currency || '₹ (INR)').split(' ')[0]})`}
+                      placeholder="e.g., 2500000"
                       value={formData.verifiedArr}
-                      onChangeText={v => handleChange('verifiedArr', v)}
-                      contextData={{ stage: formData.stage, sector: formData.sector }}
-                      instruction="Generate a realistic MRR for a Series-A startup. Output ONLY the value in Indian currency (e.g., ₹25 L)."
+                      onChangeText={v => handleChange('verifiedArr', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
+                      contextData={{ stage: formData.stage, sector: formData.sector, currency: formData.currency }}
+                      instruction="Generate a realistic MRR for a Series-A startup. Output ONLY the raw integer number."
+                      description="Monthly Recurring Revenue."
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
                       label="CHURN RATE (%)"
-                      placeholder="e.g., 5%"
+                      placeholder="e.g., 5"
                       value={formData.churnRate}
-                      onChangeText={v => handleChange('churnRate', v)}
+                      onChangeText={v => handleChange('churnRate', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
                       contextData={{ sector: formData.sector }}
-                      instruction="Generate a realistic Churn Rate percentage. Output ONLY the percentage (e.g., 5%)."
+                      instruction="Generate a realistic Churn Rate percentage. Output ONLY the raw integer number."
+                      description="Percentage of customers lost over a given period."
                     />
                   </View>
                 </View>
@@ -585,27 +637,32 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                         </TouchableOpacity>
                       ))}
                     </View>
+                    <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 8 }}>Lifetime Value to Customer Acquisition Cost ratio.</Text>
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="CUSTOMER ACQUISITION COST (CAC) ₹"
-                      placeholder="e.g., ₹1000"
+                      label={`CUSTOMER ACQUISITION COST (CAC) ${(formData.currency || '₹ (INR)').split(' ')[0]}`}
+                      placeholder="e.g., 1000"
                       value={formData.cacPayback}
-                      onChangeText={v => handleChange('cacPayback', v)}
-                      contextData={{ sector: formData.sector }}
-                      instruction="Generate a realistic CAC in Indian currency. Output ONLY the number (e.g., ₹1000)."
+                      onChangeText={v => handleChange('cacPayback', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
+                      contextData={{ sector: formData.sector, currency: formData.currency }}
+                      instruction="Generate a realistic CAC. Output ONLY the raw integer number (e.g., 1000)."
+                      description="Cost to acquire a single customer."
                     />
                   </View>
                 </View>
                 <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="CURRENT MONTHLY BURN (₹)"
-                      placeholder="e.g., ₹10 L"
+                      label={`CURRENT MONTHLY BURN (${(formData.currency || '₹ (INR)').split(' ')[0]})`}
+                      placeholder="e.g., 1000000"
                       value={formData.burnRate}
-                      onChangeText={v => handleChange('burnRate', v)}
-                      contextData={{ stage: formData.stage }}
-                      instruction="Generate a realistic monthly burn rate for a Series-A startup. Output ONLY the value in Indian currency (e.g., ₹10 L)."
+                      onChangeText={v => handleChange('burnRate', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
+                      contextData={{ stage: formData.stage, currency: formData.currency }}
+                      instruction="Generate a realistic monthly burn rate for a Series-A startup. Output ONLY the raw integer number."
+                      description="Amount spent monthly before generating positive cash flow."
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
@@ -614,8 +671,10 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       placeholder="e.g., 12"
                       value={formData.runway}
                       onChangeText={v => handleChange('runway', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
                       contextData={{ stage: formData.stage }}
-                      instruction="Generate a realistic runway in months for a Series-A startup. Output ONLY the number (e.g., 18)."
+                      instruction="Generate a realistic runway in months for a Series-A startup. Output ONLY the raw integer number (e.g., 18)."
+                      description="Number of months until cash runs out."
                     />
                   </View>
                 </View>
@@ -641,6 +700,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       <Text style={{ fontSize: 14, color: '#334155' }}>Marketing</Text>
                     </TouchableOpacity>
                   </View>
+                  <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 12 }}>Which key leadership roles are already filled?</Text>
                 </View>
               </>
             )}
@@ -650,22 +710,26 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                 <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
-                      label="TOTAL ANNUAL REVENUE (₹)"
-                      placeholder="e.g., ₹25 Cr"
+                      label={`TOTAL ANNUAL REVENUE (${(formData.currency || '₹ (INR)').split(' ')[0]})`}
+                      placeholder="e.g., 250000000"
                       value={formData.annualRevenue}
-                      onChangeText={v => handleChange('annualRevenue', v)}
-                      contextData={{ stage: formData.stage, sector: formData.sector }}
-                      instruction="Generate a realistic total annual revenue for a Series-B startup. Output ONLY the value in Indian currency (e.g., ₹25 Cr)."
+                      onChangeText={v => handleChange('annualRevenue', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
+                      contextData={{ stage: formData.stage, sector: formData.sector, currency: formData.currency }}
+                      instruction="Generate a realistic total annual revenue for a Series-B startup. Output ONLY the raw integer number."
+                      description="Total revenue generated over the past 12 months."
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
                     <AISparkleInput
                       label="NET REVENUE RETENTION (NRR) %"
-                      placeholder="e.g., 120%"
+                      placeholder="e.g., 120"
                       value={formData.nrr}
-                      onChangeText={v => handleChange('nrr', v)}
+                      onChangeText={v => handleChange('nrr', v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
                       contextData={{ sector: formData.sector }}
-                      instruction="Generate a realistic NRR percentage for a Series-B startup. Output ONLY the percentage (e.g., 120%)."
+                      instruction="Generate a realistic NRR percentage for a Series-B startup. Output ONLY the raw integer number."
+                      description="Percentage of revenue retained from existing customers, including expansions/upsells."
                     />
                   </View>
                 </View>
@@ -678,6 +742,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       </TouchableOpacity>
                     ))}
                   </View>
+                  <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 8 }}>Lifetime Value to Customer Acquisition Cost ratio.</Text>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>EXPANSION VECTOR (Select all that apply)</Text>
@@ -702,6 +767,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       );
                     })}
                   </View>
+                  <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 8 }}>Strategies for scaling operations and revenue.</Text>
                 </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>C-SUITE COMPLETENESS</Text>
@@ -714,6 +780,19 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       <Text style={[styles.outlineButtonText, { color: !formData.cSuiteComplete ? '#FFF' : '#475569' }]}>No</Text>
                     </TouchableOpacity>
                   </View>
+                  <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 12 }}>Indicates if all key executive roles are filled.</Text>
+                </View>
+                <View style={styles.inputGroup}>
+                  <AISparkleInput
+                    label="MARKET SHARE NICHE %"
+                    placeholder="e.g., 15"
+                    value={formData.marketShare}
+                    onChangeText={v => handleChange('marketShare', v.replace(/[^0-9]/g, ''))}
+                    keyboardType="numeric"
+                    contextData={{ sector: formData.sector }}
+                    instruction="Generate a realistic market share percentage. Output ONLY the raw integer number."
+                    description="Estimated percentage of your target market currently captured."
+                  />
                 </View>
               </>
             )}
@@ -822,7 +901,7 @@ const styles = StyleSheet.create({
   scrollContent: { flex: 1 },
   scrollPadding: { padding: 24, paddingBottom: 120 },
   
-  topNavRow: { flexDirection: 'row', width: '100%', marginBottom: 8 },
+  topNavRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-between', marginBottom: 8 },
   backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
 
   profileHeaderBlock: { alignItems: 'center', marginBottom: 40, marginTop: 8 },

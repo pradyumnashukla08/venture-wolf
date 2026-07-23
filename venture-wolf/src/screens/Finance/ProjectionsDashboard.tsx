@@ -1,9 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ProjectionsData } from './types';
 import { theme } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AIDisclaimer } from '../../components/AIDisclaimer';
+
+interface DownloadHistoryItem {
+  id: string;
+  filename: string;
+  date: string;
+  uri: string;
+}
 
 interface ProjectionsDashboardProps {
   projections: ProjectionsData;
@@ -35,19 +47,78 @@ const formatPercentage = (value: number) => {
 
 export const ProjectionsDashboard: React.FC<ProjectionsDashboardProps> = ({ projections, assumptions, downloadUrl, highRiskOfRuin, onReset }) => {
   const [activeScenario, setActiveScenario] = useState<Scenario>('baseCase');
+  const [downloadHistory, setDownloadHistory] = useState<DownloadHistoryItem[]>([]);
   const navigation = useNavigation<any>();
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@venturewolf_downloads');
+        if (stored) setDownloadHistory(JSON.parse(stored));
+      } catch (e) {
+        console.error('Failed to load history', e);
+      }
+    };
+    loadHistory();
+  }, []);
+
+  const openFile = async (uri: string) => {
+    try {
+      if (Platform.OS === 'android') {
+        const contentUri = await FileSystem.getContentUriAsync(uri);
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1,
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+      } else {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, {
+            UTI: 'com.microsoft.excel.xls',
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            dialogTitle: 'Save or Open Financial Forecast',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to open file:', error);
+      Alert.alert('Notice', 'No app found to open Excel files directly. Opening share menu instead...');
+      // Fallback
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+      }
+    }
+  };
 
   const handleDownload = async () => {
     try {
-      const supported = await Linking.canOpenURL(downloadUrl);
-      if (supported) {
-        await Linking.openURL(downloadUrl);
-      } else {
-        Alert.alert('Error', 'Cannot open the provided download link.');
+      const filename = `Financial_Forecast_${activeScenario}.xlsx`;
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      
+      const downloadRes = await FileSystem.downloadAsync(downloadUrl, fileUri);
+      
+      if (downloadRes.status !== 200) {
+        throw new Error('Download failed');
       }
+
+      const newItem: DownloadHistoryItem = {
+        id: Date.now().toString(),
+        filename: filename,
+        date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
+        uri: downloadRes.uri
+      };
+      const newHistory = [newItem, ...downloadHistory];
+      setDownloadHistory(newHistory);
+      AsyncStorage.setItem('@venturewolf_downloads', JSON.stringify(newHistory));
+
+      await openFile(downloadRes.uri);
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'An error occurred while trying to download the file.');
+      Alert.alert('Error', 'An error occurred while downloading the file.');
     }
   };
 
@@ -86,8 +157,9 @@ export const ProjectionsDashboard: React.FC<ProjectionsDashboardProps> = ({ proj
           <Ionicons name="arrow-back" size={24} color={theme.colors.darkText} />
         </TouchableOpacity>
         <Text style={styles.title}>AI Projections</Text>
-        <TouchableOpacity style={styles.backButton} onPress={onReset}>
-          <Ionicons name="create-outline" size={24} color={theme.colors.primary} />
+        <TouchableOpacity style={[styles.backButton, { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(56, 189, 248, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }]} onPress={onReset}>
+          <Ionicons name="refresh" size={14} color={theme.colors.primary} />
+          <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: 'bold', marginLeft: 6 }}>New</Text>
         </TouchableOpacity>
       </View>
 
@@ -182,14 +254,44 @@ export const ProjectionsDashboard: React.FC<ProjectionsDashboardProps> = ({ proj
             </View>
           </ScrollView>
         </View>
+
+        {/* Recent Downloads History */}
+        {downloadHistory.length > 0 && (
+          <View style={{ marginTop: 32, marginBottom: 24, marginHorizontal: 20, padding: 24, backgroundColor: theme.colors.darkSurface, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.darkBorder }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Ionicons name="document-text" size={20} color={theme.colors.darkText} />
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.darkText, marginLeft: 8 }}>Recent Excel Downloads</Text>
+            </View>
+            {downloadHistory.map((item) => (
+              <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.darkBorder }}>
+                <View style={{ flex: 1, paddingRight: 16 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.darkText, marginBottom: 6 }}>{item.filename}</Text>
+                  <Text style={{ fontSize: 12, color: theme.colors.darkTextMuted }}>{item.date}</Text>
+                </View>
+                <TouchableOpacity 
+                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(56, 189, 248, 0.1)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)' }}
+                  onPress={() => openFile(item.uri)}
+                >
+                  <Ionicons name="open-outline" size={16} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: theme.colors.primary }}>Open</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={{ marginHorizontal: 20, marginBottom: 24 }}>
+          <AIDisclaimer />
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.returnButton} onPress={() => navigation.navigate('FounderTabs', { screen: 'Home' })}>
           <Text style={styles.returnButtonText}>Return to Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={handleDownload}>
-          <Ionicons name="download-outline" size={24} color="#0F172A" />
+        <TouchableOpacity style={[styles.iconButton, { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }]} onPress={handleDownload}>
+          <Ionicons name="download-outline" size={20} color="#0F172A" />
+          <Text style={{ color: '#0F172A', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>Save Excel</Text>
         </TouchableOpacity>
       </View>
     </View>

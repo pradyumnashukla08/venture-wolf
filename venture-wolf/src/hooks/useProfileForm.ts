@@ -34,6 +34,7 @@ export const useProfileForm = () => {
     sector: 'SaaS',
     stage: 'Pre-Seed' as FundingStage,
     pitch: '',
+    currency: '₹ (INR)',
     
     // Market
     tam: '',
@@ -127,7 +128,7 @@ export const useProfileForm = () => {
           if ((!parsed.profileImage || parsed.profileImage.includes('randomuser.me')) && session?.user?.user_metadata?.avatar_url) {
             parsed.profileImage = session.user.user_metadata.avatar_url;
           }
-          setFormData(parsed);
+          setFormData(prev => ({ ...prev, ...parsed }));
           if (parsed.stage) setStartupStage(parsed.stage);
         } else if (session?.user && isMounted.current) {
           setFormData(prev => {

@@ -34,6 +34,17 @@ export function computeScenarioFinancials(
   for (let year = 1; year <= 5; year++) {
     let yearRevenue = 0;
 
+    // Apply Law of Large Numbers (Growth Decay)
+    if (year > 1) {
+      if (archetype === 'SAAS') {
+        // SaaS MoM growth decays aggressively as the MRR base scales to prevent explosive Year 4/5 outputs
+        scenario.growthRateOrYield = scenario.growthRateOrYield * 0.60;
+      } else {
+        // Annual growth rates decay slightly year-over-year
+        scenario.growthRateOrYield = scenario.growthRateOrYield * 0.85;
+      }
+    }
+
     // Monthly compounding loop
     for (let month = 1; month <= 12; month++) {
       if (archetype === 'SAAS') {

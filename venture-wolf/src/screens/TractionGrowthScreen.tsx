@@ -25,11 +25,13 @@ class SvgErrorBoundary extends React.Component<{children: React.ReactNode}, {has
 }
 
 import { useProfileStore } from '../store/useProfileStore';
+import { useProfileForm } from '../hooks/useProfileForm';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 import type { TractionMetrics, FinancialMetrics, GTMStrategy } from '../types/evaluation';
 export const TractionGrowthScreen = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet, halfWidth } = useResponsiveLayout();
   const { startupStage, evaluationResult, processedDocIds } = useProfileStore();
+  const { formData } = useProfileForm();
   
   const hasFinancials = processedDocIds.some(id => 
     ['fin_model', 'basic_pnl', 'three_stmt', 'hist_fin', 'bank_stmts', 'bva_sheet', 'audited_fin', 'trial_bal', 'spend_plan', 'basic_cap', 'std_cap'].includes(id)
@@ -67,11 +69,16 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
     return path;
   };
 
+  const fallbackWaitlist = tm.waitlist_count || Number(formData.waitlistCount) || 0;
+  const fallbackBeta = (tm.waitlist_count && tm.beta_users) 
+    ? Math.round((tm.beta_users / tm.waitlist_count) * 100) 
+    : (Number(formData.betaConversion) || 0);
+
   const data = {
     stage: startupStage,
-    waitlistCount: tm.waitlist_count ? tm.waitlist_count.toLocaleString() : 'N/A',
+    waitlistCount: fallbackWaitlist ? fallbackWaitlist.toLocaleString() : 'N/A',
     waitlistGrowth: tm.waitlist_growth ? `+${tm.waitlist_growth}%` : '',
-    betaConversion: tm.waitlist_count && tm.beta_users ? `${Math.round((tm.beta_users / tm.waitlist_count) * 100)}%` : 'N/A',
+    betaConversion: fallbackBeta ? `${fallbackBeta}%` : 'N/A',
     betaConversionGrowth: tm.beta_conversion_growth ? `+${tm.beta_conversion_growth}%` : '',
     arr: formatCurrency(fm.arr),
     arrGrowth: tm.arr_mom_growth ? `+${tm.arr_mom_growth}%` : '',
@@ -84,7 +91,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
     chartPoints: generateSvgPath(tm.historical_revenue_6m)
   };
 
-  if (!evaluationResult || !hasFinancials) {
+  if (!evaluationResult) {
     return (
       <View style={{ flex: 1 }}>
         <View style={[styles.topNavRow, { padding: 24, paddingTop: 48, paddingBottom: 0, backgroundColor: '#F8FAFC' }]}>
@@ -96,7 +103,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
         </View>
         <EcosystemEmptyState 
           featureName="Traction Growth" 
-          requiredDocument="Financials (Excel/CSV) & Pitch Deck" 
+          requiredDocument="Run AI Evaluation to generate Traction Map" 
           iconName="trending-up-outline" 
         />
       </View>
@@ -244,6 +251,46 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
             </>
           )}
         </>
+
+      {gtm.channels && gtm.channels.length > 0 && (
+        <View style={[styles.chartCard, theme.shadows.premiumLight, { padding: 0, overflow: 'hidden' }]}>
+          <View style={{ padding: 24, borderBottomWidth: 1, borderColor: '#F1F5F9' }}>
+            <Text style={[styles.chartTitle, { marginBottom: 0 }]}>ACQUISITION CHANNELS</Text>
+          </View>
+          {gtm.channels?.map((ch, idx) => (
+            <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: idx < gtm.channels.length - 1 ? 1 : 0, borderColor: '#F1F5F9' }}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0F172A', marginBottom: 4 }} numberOfLines={2}>{ch.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ch.status === 'Scaling' ? '#10B981' : ch.status === 'Testing' ? '#F59E0B' : '#EF4444', marginRight: 6 }} />
+                  <Text style={{ fontSize: 12, color: '#64748B' }}>{ch.status}</Text>
+                </View>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontSize: 11, color: '#94A3B8', fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 2 }}>EST. CAC</Text>
+                <Text style={{ fontSize: 18, fontWeight: '900', color: '#0F172A' }}>₹{ch.cac.toLocaleString()}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {gtm.experiments && gtm.experiments.length > 0 && (
+        <View style={{ marginBottom: 40 }}>
+          <Text style={{ fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5, color: '#64748B', marginBottom: 16, textTransform: 'uppercase', paddingHorizontal: 4 }}>Growth Experiments</Text>
+          {gtm.experiments?.map((exp, idx) => (
+            <View key={idx} style={[styles.statCard, theme.shadows.premiumLight, { marginBottom: 12, padding: 20 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0F172A', flex: 1, paddingRight: 12 }}>{exp.title}</Text>
+                <View style={{ backgroundColor: exp.status === 'Active' ? '#ECFDF5' : '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: exp.status === 'Active' ? '#10B981' : '#3B82F6' }}>{exp.status.toUpperCase()}</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 13, color: '#64748B', lineHeight: 20 }}>{exp.description}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Footer Action */}
       <TouchableOpacity style={styles.saveButton} activeOpacity={0.8} onPress={() => navigation.goBack()}>

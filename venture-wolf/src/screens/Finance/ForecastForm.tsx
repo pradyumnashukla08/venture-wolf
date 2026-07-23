@@ -8,9 +8,10 @@ import { theme } from '../../constants/theme';
 interface ForecastFormProps {
   onSubmit: (data: ForecastRequest) => void;
   onBack: () => void;
+  sectorChangedWarning?: boolean;
 }
 
-export const ForecastForm: React.FC<ForecastFormProps> = ({ onSubmit, onBack }) => {
+export const ForecastForm: React.FC<ForecastFormProps> = ({ onSubmit, onBack, sectorChangedWarning }) => {
   const [companyName, setCompanyName] = useState('');
   const [archetype, setArchetype] = useState<ForecastRequest['archetype']>('SAAS');
   const [description, setDescription] = useState('');
@@ -72,6 +73,15 @@ export const ForecastForm: React.FC<ForecastFormProps> = ({ onSubmit, onBack }) 
         </View>
         <Text style={styles.subtitle}>Let the AI CFO generate your 60-month model</Text>
       </View>
+
+      {sectorChangedWarning && (
+        <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 16, borderRadius: 8, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)', flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="warning" size={24} color="#F59E0B" style={{ marginRight: 12 }} />
+          <Text style={{ flex: 1, color: '#D97706', fontSize: 13, lineHeight: 18, fontWeight: 'bold' }}>
+            You have to generate a new financial forecast as you have changed your sector.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>COMPANY NAME</Text>

@@ -33,8 +33,8 @@ export const LoginScreen = () => {
     if (error) {
       Alert.alert('Sign In Failed', error.message);
     } else {
-      // Manually push to the onboarding funnel now that App.tsx doesn't dynamically swap stacks
-      navigation.replace('FounderProfile');
+      const role = data.user?.user_metadata?.user_role || 'founder';
+      navigation.replace(role === 'investor' ? 'InvestorTabs' : 'FounderTabs');
     }
     setLoading(false);
   };
@@ -96,12 +96,13 @@ export const LoginScreen = () => {
 
         // 5. Forcefully inject the session into Supabase local storage
         if (access_token && refresh_token) {
-          const { error: sessionError } = await supabase.auth.setSession({
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
             access_token,
             refresh_token,
           });
           if (sessionError) throw sessionError;
-          navigation.replace('FounderProfile');
+          const role = sessionData.user?.user_metadata?.user_role || 'founder';
+          navigation.replace(role === 'investor' ? 'InvestorTabs' : 'FounderTabs');
         } else {
           throw new Error('Could not extract access_token from callback URL');
         }

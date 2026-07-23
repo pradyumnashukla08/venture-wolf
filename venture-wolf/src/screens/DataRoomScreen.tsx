@@ -108,7 +108,14 @@ export const DataRoomScreen = ({ navigation }: any) => {
           setEvaluationResult(result.evaluation);
           setProcessedDocIds(uploadedDocs.map(d => d.id));
           completeImport();
-          navigation.replace('DueDiligence');
+          
+          navigation.reset({
+            index: 1,
+            routes: [
+              { name: 'FounderTabs' },
+              { name: 'DueDiligence' }
+            ],
+          });
         }
       } catch (error: any) {
         console.error('AI Evaluation Error:', error);
@@ -249,6 +256,12 @@ export const DataRoomScreen = ({ navigation }: any) => {
   return (
     <View style={styles.wrapper}>
       <ResponsiveScrollContainer contentContainerStyle={styles.container}>
+        <View style={styles.topNavRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#0F172A" />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.headerBlock}>
           <Text style={styles.pageTitle}>Data Room Import</Text>
           <Text style={styles.pageSubtitle}>Upload your core materials. The AI Diligence Engine will extract and cross-verify all entities.</Text>
@@ -356,7 +369,9 @@ export const DataRoomScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#FFFFFF' },
   container: { padding: 24, paddingBottom: 120 },
-  headerBlock: { marginBottom: 32, alignItems: 'center', marginTop: 24 },
+  topNavRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
+  headerBlock: { marginBottom: 32, alignItems: 'center', marginTop: 8 },
   pageTitle: { fontSize: 28, fontWeight: '900', color: '#0F172A', marginBottom: 8, letterSpacing: -0.5 },
   pageSubtitle: { fontSize: 15, color: '#64748B', textAlign: 'center', lineHeight: 22, maxWidth: 400 },
   

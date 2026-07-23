@@ -38,10 +38,6 @@ export const Workspace = ({ navigation }: any) => {
   if (progressPercent >= 100) readinessLevel = "Level 3: Investor Ready";
   else if (progressPercent >= 50) readinessLevel = "Level 2: Data Room Build";
 
-  const handleShare = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Link Copied!", "Your secure Data Room link has been copied to your clipboard.");
-  };
 
   const renderChecklistCard = (title: string, items: any[]) => {
     const cardCompleted = items.filter(i => i.status === 'done').length;
@@ -94,15 +90,7 @@ export const Workspace = ({ navigation }: any) => {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.pageTitle}>AvasPlot</Text>
-            <View style={styles.readinessBadge}>
-              <Ionicons name="trophy" size={12} color="#D97706" style={{ marginRight: 6 }} />
-              <Text style={styles.readinessText}>{readinessLevel}</Text>
-            </View>
           </View>
-          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-            <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.shareText}>Share</Text>
-          </TouchableOpacity>
         </View>
         
         {/* Overall Progress Bar Container */}
@@ -120,7 +108,7 @@ export const Workspace = ({ navigation }: any) => {
         {renderChecklistCard("Market & Metrics", marketMetrics)}
         {renderChecklistCard("AI Verification", aiVerification)}
 
-        <TouchableOpacity activeOpacity={0.8} style={styles.continueButton}>
+        <TouchableOpacity activeOpacity={0.8} style={styles.continueButton} onPress={() => navigation.navigate('DueDiligence')}>
           <Text style={styles.continueButtonText}>CONTINUE BUILDING</Text>
           <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 8 }} />
         </TouchableOpacity>

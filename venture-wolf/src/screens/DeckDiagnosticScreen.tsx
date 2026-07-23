@@ -160,7 +160,7 @@ export const DeckDiagnosticScreen = ({ navigation }: any) => {
       </Modal>
 
       {/* Footer Action */}
-      <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.actionButton} activeOpacity={0.8} onPress={() => navigation.navigate('ImportCenter')}>
         <Ionicons name="cloud-upload" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
         <Text style={styles.actionButtonText}>Upload New Revision</Text>
       </TouchableOpacity>

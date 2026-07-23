@@ -36,8 +36,8 @@ export const FinanceScreen = () => {
   const [projectionsData, setProjectionsData] = useState<any>(null);
   const [assumptionsGenerated, setAssumptionsGenerated] = useState<any>(null);
   const [downloadUrl, setDownloadUrl] = useState<string>('');
-
   const [highRiskOfRuin, setHighRiskOfRuin] = useState<boolean>(false);
+  const [sectorChangedWarning, setSectorChangedWarning] = useState<boolean>(false);
 
   useEffect(() => {
     const loadLatestForecast = async () => {
@@ -45,6 +45,23 @@ export const FinanceScreen = () => {
         const latest = await AsyncStorage.getItem('@latest_forecast_cache');
         if (latest) {
           const parsed = JSON.parse(latest);
+
+          let currentArchetype = 'SAAS';
+          const cachedProfile = await AsyncStorage.getItem('@draft_profile_cache').catch(() => null);
+          if (cachedProfile) {
+             const parsedProfile = JSON.parse(cachedProfile);
+             if (parsedProfile.sector) {
+                const sector = parsedProfile.sector.toUpperCase();
+                if (sector === 'MANUFACTURING') currentArchetype = 'MANUFACTURING';
+                else if (sector === 'SERVICES') currentArchetype = 'SERVICES';
+             }
+          }
+
+          if (parsed.archetype && parsed.archetype !== currentArchetype) {
+             setSectorChangedWarning(true);
+             return;
+          }
+
           setProjectionsData(parsed.projectionsData);
           setAssumptionsGenerated(parsed.assumptionsGenerated);
           setDownloadUrl(parsed.downloadUrl);
@@ -95,6 +112,7 @@ export const FinanceScreen = () => {
           assumptionsGenerated: responseData.assumptionsGenerated,
           downloadUrl: responseData.downloadUrl,
           highRiskOfRuin: responseData.highRiskOfRuin || false,
+          archetype: formData.archetype,
         });
         await AsyncStorage.setItem(cacheKey, cachePayload).catch(() => {});
         await AsyncStorage.setItem('@latest_forecast_cache', cachePayload).catch(() => {});
@@ -134,19 +152,14 @@ export const FinanceScreen = () => {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {currentView === 'FORM' && (
-          <ForecastForm onSubmit={handleGenerateForecast} onBack={handleFormBack} />
-        )}
-        {currentView === 'LOADING' && (
-          <ForecastLoading />
-        )}
-        {currentView === 'DASHBOARD' && projectionsData && (
+  const renderView = () => {
+    switch (currentView) {
+      case 'FORM':
+        return <ForecastForm onSubmit={handleGenerateForecast} onBack={handleFormBack} sectorChangedWarning={sectorChangedWarning} />;
+      case 'LOADING':
+        return <ForecastLoading />;
+      case 'DASHBOARD':
+        return (
           <ProjectionsDashboard 
             projections={projectionsData} 
             assumptions={assumptionsGenerated}
@@ -154,7 +167,19 @@ export const FinanceScreen = () => {
             highRiskOfRuin={highRiskOfRuin}
             onReset={handleReset}
           />
-        )}
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {renderView()}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -49,7 +49,7 @@ export const SignUpScreen = () => {
         if (setRoleOffline) {
           await setRoleOffline(role);
         }
-        navigation.replace('FounderProfile');
+        navigation.replace(role === 'investor' ? 'InvestorTabs' : 'FounderTabs', { screen: 'Profile' });
       } else {
         // Fallback: try to manually sign in just in case the session wasn't auto-returned
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
@@ -58,7 +58,7 @@ export const SignUpScreen = () => {
           if (setRoleOffline) {
             await setRoleOffline(role);
           }
-          navigation.replace('FounderProfile');
+          navigation.replace(role === 'investor' ? 'InvestorTabs' : 'FounderTabs', { screen: 'Profile' });
         } else {
           // If we reach here, Supabase is strictly enforcing Email Confirmations
           Alert.alert(
