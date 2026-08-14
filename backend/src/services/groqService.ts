@@ -309,4 +309,8 @@ Analyze the pitch and return ONLY a valid JSON object with the following schema:
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
+  } catch (error: any) {
+    console.error('Error during Pitch Audio processing:', error);
+    throw error;
+  }
 };
