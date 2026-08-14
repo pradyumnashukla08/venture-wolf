@@ -420,7 +420,7 @@ export const FounderHome = ({ navigation }: any) => {
               { id: 'ImportCenter', icon: 'database-sync', label: 'IMPORT' },
               { id: 'DeckAnalysis', icon: 'file-document-multiple', label: 'DECK' },
               { id: 'InvestorProfile', icon: 'lock', label: 'VC PROFILE', locked: true },
-              { id: 'AICommittee', icon: 'lock', label: 'AI BOARD', locked: true },
+              { id: 'AIInvestor', icon: 'account-star', label: 'AI INVESTOR' },
               { id: 'DueDiligence', icon: 'shield-search', label: 'DILIGENCE' },
               { id: 'Finance', icon: 'finance', label: 'FINANCIALS' },
               { id: 'PitchPractice', icon: 'microphone-variant', label: 'PITCH PREP' },

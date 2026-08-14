@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import Svg, { Polygon, Circle, Text as SvgText } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,10 +10,16 @@ import { AIDisclaimer } from '../components/AIDisclaimer';
 import type { EvaluationResult } from '../types/evaluation';
 import { getAIPromptForStage } from '../services/aiPromptMatrix';
 import { generateActionSteps } from '../utils/remediationMapper';
+import { apiClient } from '../services/apiClient';
 
 export const AIReviewScreen = ({ navigation }: any) => {
   const { startupStage, evaluationResult } = useProfileStore();
   const aiPrompt = getAIPromptForStage(startupStage);
+
+  const [isChatVisible, setIsChatVisible] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'ai', text: string}[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   // Fallbacks if data isn't loaded yet, with strict null-checking for nested properties
   const safeResult: Partial<EvaluationResult> = evaluationResult || {};
@@ -67,7 +73,37 @@ export const AIReviewScreen = ({ navigation }: any) => {
 
   const handleAskAI = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert("Ask AI", "The interactive 'Interrogate AI' chat feature will be available in the next update. Stay tuned!");
+    setIsChatVisible(true);
+  };
+
+  const sendChatMessage = async () => {
+    if (!chatMessage.trim()) return;
+    
+    const userText = chatMessage.trim();
+    setChatHistory(prev => [...prev, { role: 'user', text: userText }]);
+    setChatMessage('');
+    setIsChatLoading(true);
+
+    try {
+      const response = await apiClient.post('/evaluate/ask-ai', {
+        message: userText,
+        evaluationContext: evalData,
+        startupStage: startupStage
+      });
+
+      if (response.data?.success && response.data?.answer) {
+        setChatHistory(prev => [...prev, { role: 'ai', text: response.data.answer }]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        throw new Error('Invalid response');
+      }
+    } catch (error) {
+      console.error('Ask AI error:', error);
+      Alert.alert('Error', 'Failed to get a response from AI. Please try again.');
+      setChatHistory(prev => [...prev, { role: 'ai', text: "Sorry, I couldn't process that right now. Please check your connection." }]);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   const mappedFlags = generateActionSteps(evalData.red_flags);
@@ -216,6 +252,56 @@ export const AIReviewScreen = ({ navigation }: any) => {
           <Text style={styles.fullReportLink}>VIEW FULL AI DUE DILIGENCE REPORT</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={isChatVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsChatVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ask AI</Text>
+            <TouchableOpacity onPress={() => setIsChatVisible(false)} style={styles.modalCloseBtn}>
+              <Ionicons name="close" size={24} color="#0F172A" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.chatScroll} contentContainerStyle={styles.chatScrollContent}>
+            {chatHistory.length === 0 && (
+              <View style={styles.emptyChatContainer}>
+                <Ionicons name="chatbubbles-outline" size={48} color="#94A3B8" />
+                <Text style={styles.emptyChatText}>Ask Devang AI about your specific evaluation scores, red flags, or how to improve.</Text>
+              </View>
+            )}
+            
+            {chatHistory.map((msg, index) => (
+              <View key={index} style={[styles.chatBubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
+                <Text style={[styles.chatText, msg.role === 'user' ? styles.userText : styles.aiText]}>{msg.text}</Text>
+              </View>
+            ))}
+            
+            {isChatLoading && (
+              <View style={[styles.chatBubble, styles.aiBubble, { width: 60, alignItems: 'center' }]}>
+                <ActivityIndicator size="small" color="#0F172A" />
+              </View>
+            )}
+          </ScrollView>
+          
+          <View style={styles.chatInputContainer}>
+            <TextInput
+              style={styles.chatInput}
+              value={chatMessage}
+              onChangeText={setChatMessage}
+              placeholder="Ask about your review..."
+              placeholderTextColor="#94A3B8"
+              multiline
+            />
+            <TouchableOpacity 
+              style={[styles.chatSendBtn, (!chatMessage.trim() || isChatLoading) && styles.chatSendBtnDisabled]} 
+              onPress={sendChatMessage}
+              disabled={!chatMessage.trim() || isChatLoading}
+            >
+              <Ionicons name="send" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ResponsiveScrollContainer>
   );
 };
@@ -534,5 +620,107 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
     fontWeight: '500',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  chatScroll: {
+    flex: 1,
+  },
+  chatScrollContent: {
+    padding: 20,
+    gap: 16,
+  },
+  emptyChatContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 100,
+    paddingHorizontal: 30,
+  },
+  emptyChatText: {
+    textAlign: 'center',
+    color: '#64748B',
+    fontSize: 14,
+    marginTop: 16,
+    lineHeight: 22,
+  },
+  chatBubble: {
+    padding: 14,
+    borderRadius: 18,
+    maxWidth: '85%',
+  },
+  userBubble: {
+    backgroundColor: '#3B82F6',
+    alignSelf: 'flex-end',
+    borderBottomRightRadius: 4,
+  },
+  aiBubble: {
+    backgroundColor: '#FFFFFF',
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  chatText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  userText: {
+    color: '#FFFFFF',
+  },
+  aiText: {
+    color: '#334155',
+  },
+  chatInputContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    alignItems: 'flex-end',
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    fontSize: 15,
+    maxHeight: 120,
+    minHeight: 44,
+    color: '#0F172A',
+  },
+  chatSendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  chatSendBtnDisabled: {
+    backgroundColor: '#94A3B8',
   },
 });

@@ -19,7 +19,7 @@ export const MatchmakingScreen = ({ navigation }: any) => {
         </View>
         <Text style={styles.title}>Coming Soon</Text>
         <Text style={styles.subtitle}>
-          WowFund is currently building the Investor Matchmaking screen. This feature will be available soon!
+          WaouFund is currently building the Investor Matchmaking screen. This feature will be available soon!
         </Text>
       </View>
     </View>

@@ -107,7 +107,7 @@ export const AuthBottomSheet = ({ visible, onClose, onLoginSuccess }: { visible:
             <Text style={[styles.authText, { color: '#FFFFFF' }]}>Continue with Email</Text>
           </TouchableOpacity>
           
-          <Text style={styles.footerText}>By continuing, you agree to WowFund's Terms of Service and Privacy Policy.</Text>
+          <Text style={styles.footerText}>By continuing, you agree to WaouFund's Terms of Service and Privacy Policy.</Text>
         </View>
       </View>
     </Modal>

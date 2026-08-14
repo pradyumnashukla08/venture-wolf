@@ -258,7 +258,7 @@ export const TractionGrowthScreen = ({ navigation }: any) => {
             <Text style={[styles.chartTitle, { marginBottom: 0 }]}>ACQUISITION CHANNELS</Text>
           </View>
           {gtm.channels?.map((ch, idx) => (
-            <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: idx < gtm.channels.length - 1 ? 1 : 0, borderColor: '#F1F5F9' }}>
+            <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: idx < (gtm.channels?.length ?? 0) - 1 ? 1 : 0, borderColor: '#F1F5F9' }}>
               <View style={{ flex: 1, paddingRight: 12 }}>
                 <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0F172A', marginBottom: 4 }} numberOfLines={2}>{ch.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>

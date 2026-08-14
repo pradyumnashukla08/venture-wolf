@@ -49,50 +49,64 @@ Provide your evaluation as a strict JSON object with exactly the following schem
 }
 `;
 
-  try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an elite VC evaluator. You only output valid JSON without any markdown code blocks.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-    });
+  let attempt = 0;
+  const maxRetries = 3;
+  const baseDelay = 1500;
 
-    const content = chatCompletion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Groq returned empty response');
-    }
+  while (attempt <= maxRetries) {
+    try {
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an elite VC evaluator. You only output valid JSON without any markdown code blocks.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+      });
 
-    // Strip opening and closing markdown blocks safely
-    const sanitizedResponse = content.replace(/```json\n?|\n?```/g, '').trim();
-    const evaluation = JSON.parse(sanitizedResponse);
-    return evaluation;
-  } catch (error: any) {
-    console.error('Error during Groq evaluation:', error);
-    
-    // Pass up specific rate limit or overload errors from Groq SDK
-    if (error.status === 429) {
-      const err: any = new Error('AI Engine is currently rate-limited. Please try again in a moment.');
-      err.status = 429;
-      throw err;
-    }
-    if (error.status === 503) {
-      const err: any = new Error('AI Engine is currently overloaded. Please try again later.');
-      err.status = 503;
-      throw err;
-    }
+      const content = chatCompletion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('Groq returned empty response');
+      }
 
-    const err: any = new Error('Failed to evaluate startup via Groq AI.');
-    err.status = 500;
-    throw err;
+      // Strip opening and closing markdown blocks safely
+      const sanitizedResponse = content.replace(/```json\n?|\n?```/g, '').trim();
+      const evaluation = JSON.parse(sanitizedResponse);
+      return evaluation;
+    } catch (error: any) {
+      attempt++;
+      console.error(`Error during Groq evaluation (Attempt ${attempt}):`, error.message || error);
+      
+      const status = error.status;
+      const isRetryable = status === 429 || status === 503 || status === 529 || !status;
+
+      if (attempt > maxRetries || !isRetryable) {
+        if (status === 429) {
+          const err: any = new Error('AI Engine is currently rate-limited. Please try again in a moment.');
+          err.status = 429;
+          throw err;
+        }
+        if (status === 503 || status === 529) {
+          const err: any = new Error('AI Engine is currently overloaded. Please try again later.');
+          err.status = 503;
+          throw err;
+        }
+        const err: any = new Error('Failed to evaluate startup via Groq AI.');
+        err.status = 500;
+        throw err;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      console.log(`Waiting ${delay}ms before retrying Groq evaluateStartup...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
 };
 
@@ -111,72 +125,105 @@ ${instruction ? `CRITICAL INSTRUCTION FOR THIS FIELD: ${instruction}` : `Your ta
 Do not include any introductory text, quotes, or markdown formatting. Output ONLY the raw text that should be pasted into the input field.
 `;
 
-  try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an elite copywriter for startups. You output only the exact raw text requested, without quotes or conversational filler.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.7, // Higher temperature for creative copywriting
-    });
+  let attempt = 0;
+  const maxRetries = 3;
+  const baseDelay = 1500;
 
-    const content = chatCompletion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Groq returned empty response');
+  while (attempt <= maxRetries) {
+    try {
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an elite copywriter for startups. You output only the exact raw text requested, without quotes or conversational filler.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.7, // Higher temperature for creative copywriting
+      });
+
+      const content = chatCompletion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('Groq returned empty response');
+      }
+
+      return content.trim();
+    } catch (error: any) {
+      attempt++;
+      console.error(`Error during Groq AI Assist generation (Attempt ${attempt}):`, error.message || error);
+      
+      const status = error.status;
+      const isRetryable = status === 429 || status === 503 || status === 529 || !status;
+
+      if (attempt > maxRetries || !isRetryable) {
+        const err: any = new Error('Failed to generate text via Groq AI.');
+        err.status = status || 500;
+        throw err;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      console.log(`Waiting ${delay}ms before retrying Groq generateAssistText...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-
-    return content.trim();
-  } catch (error: any) {
-    console.error('Error during Groq AI Assist generation:', error);
-    const err: any = new Error('Failed to generate text via Groq AI.');
-    err.status = 500;
-    throw err;
   }
 };
 
 export const analyzeImage = async (base64Image: string, documentType: string) => {
   console.log(`Analyzing image for document type: ${documentType}`);
 
-  try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `You are an elite VC data extraction engine. Analyze this image representing a "${documentType}" document. Extract all key financial metrics, textual data, and summarize charts or graphs if present. Output a highly detailed, raw text summary of the contents.`
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:image/jpeg;base64,${base64Image}`
+  let attempt = 0;
+  const maxRetries = 3;
+  const baseDelay = 1500;
+
+  while (attempt <= maxRetries) {
+    try {
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `You are an elite VC data extraction engine. Analyze this image representing a "${documentType}" document. Extract all key financial metrics, textual data, and summarize charts or graphs if present. Output a highly detailed, raw text summary of the contents.`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`
+                }
               }
-            }
-          ]
-        }
-      ],
-      model: 'llama-3.2-90b-vision-preview',
-      temperature: 0.2,
-      max_tokens: 1024,
-    });
+            ]
+          }
+        ],
+        model: 'llama-3.2-90b-vision-preview',
+        temperature: 0.2,
+        max_tokens: 1024,
+      });
 
-    const content = chatCompletion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Groq Vision returned empty response');
+      const content = chatCompletion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('Groq Vision returned empty response');
+      }
+
+      return content.trim();
+    } catch (error: any) {
+      attempt++;
+      console.error(`Error during Groq Vision analysis (Attempt ${attempt}):`, error.message || error);
+      
+      const status = error.status;
+      const isRetryable = status === 429 || status === 503 || status === 529 || !status;
+
+      if (attempt > maxRetries || !isRetryable) {
+        return `[Warning: Failed to extract data from image (${documentType})]`;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-
-    return content.trim();
-  } catch (error: any) {
-    console.error('Error during Groq Vision analysis:', error);
-    return `[Warning: Failed to extract data from image (${documentType})]`;
   }
 };
 
@@ -212,37 +259,54 @@ Analyze the pitch and return ONLY a valid JSON object with the following schema:
 }
 `;
 
-    console.log('Evaluating transcript with LLM...');
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an elite VC pitch coach. You output valid JSON without markdown.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.3,
-      response_format: { type: 'json_object' },
-    });
+    let attempt = 0;
+    const maxRetries = 3;
+    const baseDelay = 1500;
 
-    const content = chatCompletion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Groq returned empty response for pitch evaluation');
+    while (attempt <= maxRetries) {
+      try {
+        console.log(`Evaluating transcript with LLM (Attempt ${attempt + 1})...`);
+        const chatCompletion = await groq.chat.completions.create({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an elite VC pitch coach. You output valid JSON without markdown.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
+        });
+
+        const content = chatCompletion.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error('Groq returned empty response for pitch evaluation');
+        }
+
+        const sanitizedResponse = content.replace(/```json\n?|\n?```/g, '').trim();
+        const evaluation = JSON.parse(sanitizedResponse);
+        
+        return {
+          transcript: transcriptText,
+          evaluation
+        };
+      } catch (error: any) {
+        attempt++;
+        console.error(`Error during Pitch LLM evaluation (Attempt ${attempt}):`, error.message || error);
+        
+        const status = error.status;
+        const isRetryable = status === 429 || status === 503 || status === 529 || !status;
+
+        if (attempt > maxRetries || !isRetryable) {
+          throw error;
+        }
+
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
-
-    const sanitizedResponse = content.replace(/```json\n?|\n?```/g, '').trim();
-    const evaluation = JSON.parse(sanitizedResponse);
-    
-    return {
-      transcript: transcriptText,
-      evaluation
-    };
-  } catch (error: any) {
-    console.error('Error during Pitch Audio processing:', error);
-    throw error;
-  }
 };

@@ -17,7 +17,7 @@ export const InvestorDetailScreen = ({ navigation }: any) => {
         </View>
         <Text style={styles.title}>Coming Soon</Text>
         <Text style={styles.subtitle}>
-          WowFund is currently preparing detailed VC Profiles and Matchmaking. This exclusive feature will be unlocked soon!
+          WaouFund is currently preparing detailed VC Profiles and Matchmaking. This exclusive feature will be unlocked soon!
         </Text>
       </View>
     </View>

@@ -18,7 +18,8 @@ router.post('/forecast', requireAuth, (req: Request, res: Response, next: NextFu
 
       // Phase 1.5: Multi-Modal Data Room parsing
       const documentUrls = validatedBody.documentUrls || [];
-      const dataRoomContext = await extractDataRoomContext(documentUrls);
+      const userId = (req as any).userId; // requireAuth injects userId
+      const dataRoomContext = await extractDataRoomContext(documentUrls, userId);
       console.log('[PHASE 1.5] Multi-Modal Data Room parsing complete.');
 
       // Phase 1: Call context analyst model matching profile scope inputs

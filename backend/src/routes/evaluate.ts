@@ -7,8 +7,29 @@ import { validate, evaluateRequestSchema, pitchRequestSchema } from '../validato
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { startInvestorQA, evaluateInvestorVerdict, type DocumentInput } from '../services/ai/investorService.js';
 
 const router = Router();
+
+async function getFounderContext(startupId: string) {
+  let contextObj: any = { founder: {}, startup: {}, profile_draft: {} };
+  try {
+    const { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', startupId).single();
+    if (profile) contextObj.founder = profile;
+    
+    const { data: startup } = await supabaseAdmin.from('startups').select('*').eq('founder_id', startupId).single();
+    if (startup) contextObj.startup = startup;
+
+    const { data: draftData, error: draftErr } = await supabaseAdmin.storage.from('data_room').download(`${startupId}/profile_draft.json`);
+    if (!draftErr && draftData) {
+      const text = Buffer.from(await draftData.arrayBuffer()).toString('utf-8');
+      contextObj.profile_draft = JSON.parse(text);
+    }
+  } catch (e) {
+    console.warn('Profile fetch warning:', e);
+  }
+  return JSON.stringify(contextObj, null, 2);
+}
 
 router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Request, res: Response): Promise<void> => {
   let rawDocuments: { type: string; mimeType: string; localPath: string }[] = [];
@@ -70,19 +91,9 @@ router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Reque
       }
     }
 
-    // Step 3: Fetch Founder & Startup Profile
-    let founderProfileContext = '';
-    try {
-      const { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', startupId).single();
-      const { data: startup } = await supabaseAdmin.from('startups').select('*').eq('founder_id', startupId).single();
-      
-      if (profile || startup) {
-        founderProfileContext = JSON.stringify({ founder: profile || {}, startup: startup || {} }, null, 2);
-        console.log('Successfully fetched founder profile context for AI evaluation.');
-      }
-    } catch (e) {
-      console.error('Failed to fetch founder profile for context:', e);
-    }
+    // Step 3: Fetch Founder & Startup Profile (including profile_draft.json)
+    const founderProfileContext = await getFounderContext(startupId);
+    console.log('Successfully fetched founder profile context for AI evaluation.');
 
     // Step 4: AI Processing
     const { evaluateStartupMultimodal } = await import('../services/geminiService.js');
@@ -197,6 +208,132 @@ router.post('/pitch', requireAuth, validate(pitchRequestSchema), async (req: Req
   } catch (error: any) {
     console.error('Pitch Evaluation Error:', error);
     res.status(500).json({ error: 'Pitch Evaluation Failed', details: error.message });
+  }
+});
+
+async function prepareDocuments(startupId: string, docsToProcess: any[]): Promise<DocumentInput[]> {
+  const rawDocuments: DocumentInput[] = [];
+  for (const doc of docsToProcess) {
+    if (!doc.path || (!doc.path.startsWith(`${startupId}/`) && !doc.path.startsWith(`pitches/${startupId}/`))) {
+      continue;
+    }
+    const { data, error } = await supabaseAdmin.storage.from('data_room').download(doc.path);
+    if (error || !data) continue;
+    try {
+      const buffer = await data.arrayBuffer();
+      const mimeType = data.type || doc.format || 'application/octet-stream';
+      const tempFilePath = path.join(os.tmpdir(), `investor_${Date.now()}_${path.basename(doc.path)}`);
+      await fs.promises.writeFile(tempFilePath, Buffer.from(buffer));
+      rawDocuments.push({
+        type: doc.type || 'Document',
+        mimeType: mimeType,
+        localPath: tempFilePath
+      });
+    } catch (err) {
+      console.warn('Failed to prepare document for Devang AI:', doc.path, err);
+    }
+  }
+  return rawDocuments;
+}
+
+router.post('/investor-start', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  let rawDocuments: DocumentInput[] = [];
+  try {
+    const startupId = (req as AuthenticatedRequest).userId;
+    const { stage = 'Seed', mode = 'fundraising', documents = [] } = req.body;
+    
+    rawDocuments = await prepareDocuments(startupId, documents);
+    
+    const founderProfileContext = await getFounderContext(startupId);
+
+    const session = await startInvestorQA(stage, mode, rawDocuments, founderProfileContext);
+    res.status(200).json({ success: true, qa_session: session });
+  } catch (error: any) {
+    console.error('Investor QA Start Error:', error);
+    res.status(500).json({ error: 'Failed to start AI Investor QA', details: error.message });
+  } finally {
+    for (const doc of rawDocuments) {
+      try { if (fs.existsSync(doc.localPath)) await fs.promises.unlink(doc.localPath); } catch (e) {}
+    }
+  }
+});
+
+router.post('/investor-verdict', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  let rawDocuments: DocumentInput[] = [];
+  try {
+    const startupId = (req as AuthenticatedRequest).userId;
+    const { stage = 'Seed', mode = 'fundraising', qaHistory = [], documents = [] } = req.body;
+    
+    rawDocuments = await prepareDocuments(startupId, documents);
+
+    // Download audio files for answers
+    for (let i = 0; i < qaHistory.length; i++) {
+      const qa = qaHistory[i];
+      if (qa.audioPath && (qa.audioPath.startsWith(`${startupId}/`) || qa.audioPath.startsWith(`pitches/${startupId}/`))) {
+        const { data, error } = await supabaseAdmin.storage.from('data_room').download(qa.audioPath);
+        if (!error && data) {
+          const buffer = await data.arrayBuffer();
+          const tempFilePath = path.join(os.tmpdir(), `answer_${Date.now()}_${path.basename(qa.audioPath)}`);
+          await fs.promises.writeFile(tempFilePath, Buffer.from(buffer));
+          qa.localAudioPath = tempFilePath;
+          qa.mimeType = data.type || 'audio/m4a';
+          // Push to rawDocuments so it gets cleaned up and uploaded to Gemini if we want to treat it as a generic document
+          rawDocuments.push({ type: `Answer_Audio_Q${i+1}`, mimeType: qa.mimeType, localPath: tempFilePath });
+        }
+      }
+    }
+
+    const founderProfileContext = await getFounderContext(startupId);
+
+    const verdict = await evaluateInvestorVerdict(stage, mode, qaHistory, rawDocuments, founderProfileContext);
+    res.status(200).json({ success: true, verdict });
+  } catch (error: any) {
+    console.error('Investor QA Verdict Error:', error);
+    res.status(500).json({ error: 'Failed to generate AI Investor Verdict', details: error.message });
+  } finally {
+    for (const doc of rawDocuments) {
+      try { if (fs.existsSync(doc.localPath)) await fs.promises.unlink(doc.localPath); } catch (e) {}
+    }
+  }
+});
+
+router.post('/ask-ai', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { message, evaluationContext, startupStage } = req.body;
+
+    if (!message || !evaluationContext || !startupStage) {
+      res.status(400).json({ error: 'Missing required fields: message, evaluationContext, startupStage' });
+      return;
+    }
+
+    const { askAIReviewQuestion } = await import('../services/geminiService.js');
+    const answer = await askAIReviewQuestion(message, evaluationContext, startupStage);
+
+    res.status(200).json({ success: true, answer });
+  } catch (error: any) {
+    console.error('Ask AI Route Error:', error);
+    const status = error.status || 500;
+    res.status(status).json({ error: 'Failed to get answer from AI', details: error.message });
+  }
+});
+
+router.post('/verify-sprint', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { sprintTitle, sprintDesc, proofText, proofImageBase64 } = req.body;
+
+    if (!sprintTitle || !sprintDesc || !proofText) {
+      res.status(400).json({ error: 'Missing required fields: sprintTitle, sprintDesc, proofText' });
+      return;
+    }
+
+    const { verifySprintProof } = await import('../services/geminiService.js');
+    const result = await verifySprintProof(sprintTitle, sprintDesc, proofText, proofImageBase64);
+
+    res.status(200).json({ success: true, ...result });
+  } catch (error: any) {
+    console.error('Verify Sprint Route Error:', error);
+    const status = error.status || 500;
+    res.status(status).json({ error: 'Failed to verify sprint', details: error.message });
   }
 });
 

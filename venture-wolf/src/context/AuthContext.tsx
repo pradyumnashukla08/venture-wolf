@@ -165,13 +165,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }
 
-    const response = await fetch(url, { ...options, headers });
-    if (response.status === 401) {
-      console.warn('Unauthorized request intercepted - signing out');
-      await signOut();
-      throw new Error('Unauthorized: Session expired. Please log in again.');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
+    try {
+      const response = await fetch(url, { ...options, headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (response.status === 401) {
+        console.warn('Unauthorized request intercepted - signing out');
+        await signOut();
+        throw new Error('Unauthorized: Session expired. Please log in again.');
+      }
+      return response;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.error('[apiFetch] Network or Request Error:', error.message);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out. The server is taking too long to respond. Please try again.');
+      }
+      throw new Error(error.message || 'Network request failed. Please check your internet connection.');
     }
-    return response;
   };
 
   // Prevent rendering children until the initial session check is complete

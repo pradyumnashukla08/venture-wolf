@@ -195,3 +195,144 @@ Provide your evaluation as a strict JSON object with exactly the following schem
     }
   }
 };
+
+export const askAIReviewQuestion = async (
+  message: string,
+  evaluationContext: any,
+  startupStage: string
+) => {
+  console.log(`Asking AI a follow-up question for stage: ${startupStage}`);
+  
+  const promptText = `
+You are an elite Silicon Valley Venture Capitalist who just evaluated a startup.
+The founder is now asking you a follow-up question about your evaluation.
+
+Here is the evaluation you provided:
+${JSON.stringify(evaluationContext, null, 2)}
+
+Here is the founder's question:
+"${message}"
+
+Respond directly to the founder. Be constructive, professional, and reference their specific scores or red flags if relevant.
+Keep your response concise (2-4 sentences max) and actionable. Do not use markdown blocks, just raw text.
+`;
+
+  let attempt = 0;
+  const maxRetries = 2;
+
+  while (attempt <= maxRetries) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [promptText],
+        config: {
+          temperature: 0.7,
+        }
+      });
+
+      const contentText = response.text;
+      if (!contentText) {
+        throw new Error('Gemini returned empty response');
+      }
+
+      return contentText.trim();
+    } catch (error: any) {
+      attempt++;
+      console.error(`Error during Gemini chat (Attempt ${attempt}):`, error.message || error);
+      
+      const status = error.status || (error.error && error.error.code);
+      const isRetryable = status === 503 || status === 429 || !status;
+
+      if (attempt > maxRetries || !isRetryable) {
+        const err: any = new Error('Failed to get answer from Gemini AI.');
+        err.status = status || 500;
+        throw err;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+};
+
+export const verifySprintProof = async (
+  sprintTitle: string,
+  sprintDesc: string,
+  proofText: string,
+  proofImageBase64?: string
+) => {
+  console.log(`Verifying Sprint Proof for: ${sprintTitle}`);
+  
+  const promptText = `
+You are an elite Silicon Valley Venture Capitalist verifying if a founder completed their GTM Sprint.
+
+Sprint Title: ${sprintTitle}
+Sprint Description: ${sprintDesc}
+
+Founder's Proof of Execution:
+"${proofText}"
+
+Analyze the founder's proof against the requirements of the sprint. 
+If the proof is reasonably sufficient and shows real effort, mark it as verified = true.
+If the proof is too vague, irrelevant, or clearly fake, mark verified = false and provide constructive feedback on what exact evidence you need to see.
+
+Provide your response as a strict JSON object with exactly the following schema:
+{
+  "verified": <boolean>,
+  "feedback": "<string: brief feedback or explanation>"
+}
+`;
+
+  let contents: any[] = [promptText];
+
+  if (proofImageBase64) {
+    // If the image has a data URI prefix, remove it to get just the base64 payload
+    const base64Data = proofImageBase64.includes('base64,') ? proofImageBase64.split('base64,')[1] : proofImageBase64;
+    
+    contents = [
+      promptText + "\n\nAn image has been provided as proof. Analyze it carefully to see if it supports the founder's claims.",
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType: 'image/jpeg', // Defaulting to jpeg, gemini accepts most common formats
+        }
+      }
+    ];
+  }
+
+  let attempt = 0;
+  const maxRetries = 2;
+
+  while (attempt <= maxRetries) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: contents,
+        config: {
+          temperature: 0.2,
+          responseMimeType: 'application/json',
+        }
+      });
+
+      const contentText = response.text;
+      if (!contentText) {
+        throw new Error('Gemini returned empty response');
+      }
+
+      const sanitizedResponse = contentText.replace(/```json\n?|\n?```/g, '').trim();
+      const result = JSON.parse(sanitizedResponse);
+      return result;
+    } catch (error: any) {
+      attempt++;
+      console.error(`Error during Gemini Sprint Verification (Attempt ${attempt}):`, error.message || error);
+      
+      const status = error.status || (error.error && error.error.code);
+      const isRetryable = status === 503 || status === 429 || !status;
+
+      if (attempt > maxRetries || !isRetryable) {
+        const err: any = new Error('Failed to verify sprint via Gemini AI.');
+        err.status = status || 500;
+        throw err;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+};

@@ -87,51 +87,74 @@ EXPECTED JSON SCHEMA:
 }
 `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      temperature: 0.15, // Locked low for mathematical consistency and strict adherence to guardrails
-    },
-  });
+  let attempt = 0;
+  const maxRetries = 3;
+  const baseDelay = 1500;
 
-  if (!response.text) {
-    throw new Error('AI Engine failed to generate institutional-grade assumptions.');
-  }
+  while (attempt <= maxRetries) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.15, // Locked low for mathematical consistency and strict adherence to guardrails
+        },
+      });
 
-  let cleanText = response.text;
-  if (cleanText.startsWith('```json')) {
-    cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '').trim();
-  } else if (cleanText.startsWith('```')) {
-    cleanText = cleanText.replace(/^```/, '').replace(/```$/, '').trim();
-  }
+      if (!response.text) {
+        throw new Error('AI Engine failed to generate institutional-grade assumptions.');
+      }
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(cleanText);
-  } catch (err) {
-    throw new Error('AI Engine returned invalid JSON.');
-  }
+      let cleanText = response.text;
+      if (cleanText.startsWith('```json')) {
+        cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '').trim();
+      } else if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```/, '').replace(/```$/, '').trim();
+      }
 
-  // Normalize keys to handle AI hallucinations (e.g., 'worstCase', 'worst', 'Worst')
-  const getScenario = (obj: any, keys: string[]) => {
-    for (const key of keys) {
-      if (obj[key]) return obj[key];
+      let parsed: any;
+      try {
+        parsed = JSON.parse(cleanText);
+      } catch (err) {
+        throw new Error('AI Engine returned invalid JSON.');
+      }
+
+      // Normalize keys to handle AI hallucinations (e.g., 'worstCase', 'worst', 'Worst')
+      const getScenario = (obj: any, keys: string[]) => {
+        for (const key of keys) {
+          if (obj[key]) return obj[key];
+        }
+        return null;
+      };
+
+      const normalizedAssumptions = {
+        Worst: getScenario(parsed, ['Worst', 'worst', 'worstCase', 'WorstCase', 'worst_case']),
+        Base: getScenario(parsed, ['Base', 'base', 'baseCase', 'BaseCase', 'base_case']),
+        Best: getScenario(parsed, ['Best', 'best', 'bestCase', 'BestCase', 'best_case']),
+      };
+
+      if (!normalizedAssumptions.Worst || !normalizedAssumptions.Base || !normalizedAssumptions.Best) {
+        console.error('Failed to parse AI output. Raw AI Response:', cleanText);
+        throw new Error('AI Engine failed to return all 3 scenarios (Worst, Base, Best).');
+      }
+
+      return normalizedAssumptions as MarketAssumptions;
+    } catch (error: any) {
+      attempt++;
+      console.error(`Error during Finance Analyst generation (Attempt ${attempt}):`, error.message || error);
+      
+      const status = error.status || (error.error && error.error.code);
+      const isRetryable = status === 429 || status === 503 || status === 529 || !status;
+
+      if (attempt > maxRetries || !isRetryable) {
+        throw error;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      console.log(`Waiting ${delay}ms before retrying Finance Analyst...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-    return null;
-  };
-
-  const normalizedAssumptions = {
-    Worst: getScenario(parsed, ['Worst', 'worst', 'worstCase', 'WorstCase', 'worst_case']),
-    Base: getScenario(parsed, ['Base', 'base', 'baseCase', 'BaseCase', 'base_case']),
-    Best: getScenario(parsed, ['Best', 'best', 'bestCase', 'BestCase', 'best_case']),
-  };
-
-  if (!normalizedAssumptions.Worst || !normalizedAssumptions.Base || !normalizedAssumptions.Best) {
-    console.error('Failed to parse AI output. Raw AI Response:', cleanText);
-    throw new Error('AI Engine failed to return all 3 scenarios (Worst, Base, Best).');
   }
-
-  return normalizedAssumptions as MarketAssumptions;
+  throw new Error('Failed to generate market assumptions after max retries.');
 }

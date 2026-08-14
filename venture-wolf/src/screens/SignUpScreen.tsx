@@ -83,7 +83,7 @@ export const SignUpScreen = () => {
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Create {role === 'founder' ? 'Founder' : 'Investor'} Account</Text>
-          <Text style={styles.subtitle}>Join the WowFund network</Text>
+          <Text style={styles.subtitle}>Join the WaouFund network</Text>
         </View>
 
         <View style={styles.formContainer}>

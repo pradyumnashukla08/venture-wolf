@@ -13,7 +13,7 @@ export const OnboardingScreen = ({ navigation }: any) => {
             <Text style={styles.wolfText}>🐺</Text>
           </View>
           <Text style={styles.brandTitle}>PITCHY X</Text>
-          <Text style={styles.brandSubtitle}>by WOWFUND</Text>
+          <Text style={styles.brandSubtitle}>by WAOUFUND</Text>
         </View>
 
         <View style={styles.heroTextContainer}>
@@ -43,7 +43,7 @@ export const OnboardingScreen = ({ navigation }: any) => {
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>🛡️ Backed by WowFund Network</Text>
+          <Text style={styles.footerText}>🛡️ Backed by WaouFund Network</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

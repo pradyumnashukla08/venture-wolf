@@ -44,7 +44,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { SignUpScreen } from './src/screens/SignUpScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { FounderHome } from './src/screens/FounderHome';
-import { AICommittee } from './src/screens/AICommittee';
+import { AIInvestorScreen } from './src/screens/AIInvestorScreen';
 import { Workspace } from './src/screens/Workspace';
 import { MarketOpportunityScreen } from './src/screens/MarketOpportunityScreen';
 import { TractionGrowthScreen } from './src/screens/TractionGrowthScreen';
@@ -152,7 +152,7 @@ function InvestorTabs() {
       <Tab.Screen name="Home" component={InvestorHomeFeed} />
       <Tab.Screen name="Deal Flow" component={DealFlowPipeline} />
       <Tab.Screen name="Pipeline" component={FunnelPipelineScreen} />
-      <Tab.Screen name="Network" component={AICommittee} options={{ title: 'Network (AI)' }} />
+      <Tab.Screen name="Network" component={AIInvestorScreen} options={{ title: 'AI Investor' }} />
       <Tab.Screen name="Profile" component={FounderProfileEditor} options={{ title: 'Settings' }} />
     </Tab.Navigator>
   );
@@ -201,7 +201,8 @@ function RootStack() {
       <Stack.Screen name="StartupReview" component={UnifiedEvaluationHub} options={{ title: 'Startup Review', headerShown: false }} />
       <Stack.Screen name="DueDiligence" component={DueDiligenceScreen} options={{ title: 'AI Due Diligence', headerShown: false }} />
       <Stack.Screen name="ActionPlan" component={ActionPlanScreen} options={{ title: 'Action Plan', headerShown: false }} />
-      <Stack.Screen name="AICommittee" component={AICommittee} options={{ title: 'AI Investment Committee', headerShown: false }} />
+      <Stack.Screen name="AIInvestor" component={AIInvestorScreen} options={{ title: 'AI Investor Grill', headerShown: false }} />
+      <Stack.Screen name="AICommittee" component={AIInvestorScreen} options={{ title: 'AI Investor Grill', headerShown: false }} />
       <Stack.Screen name="FinancialCommand" component={FinancialCommandCenter} options={{ title: 'Financial Command', headerShown: false }} />
       <Stack.Screen name="PitchPractice" component={PitchPracticeScreen} options={{ title: 'Pitch Practice', headerShown: false }} />
       <Stack.Screen name="GTMStrategy" component={GTMStrategyScreen} options={{ title: 'GTM Strategy', headerShown: false }} />

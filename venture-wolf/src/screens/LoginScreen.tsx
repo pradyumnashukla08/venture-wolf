@@ -120,13 +120,13 @@ export const LoginScreen = () => {
   return (
     <KeyboardAvoidingView 
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <View style={styles.logoContainer}>
             <Text style={styles.logoMark}>🐺</Text>
-            <Text style={styles.title}>WowFund</Text>
+            <Text style={styles.title}>WaouFund</Text>
             <Text style={styles.subtitle}>THE SYNDICATE PROTOCOL</Text>
           </View>
 

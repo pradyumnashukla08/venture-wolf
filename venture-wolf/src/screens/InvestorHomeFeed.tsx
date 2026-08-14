@@ -21,7 +21,7 @@ export const InvestorHomeFeed = ({ navigation }: any) => {
         </View>
         <Text style={styles.title}>Coming Soon</Text>
         <Text style={styles.subtitle}>
-          WowFund is crafting the ultimate Investor Dashboard experience. Stay tuned—this feature is coming soon!
+          WaouFund is crafting the ultimate Investor Dashboard experience. Stay tuned—this feature is coming soon!
         </Text>
         {/* If the user is stuck, give them a way out to go back or sign out if no back nav */}
         {!navigation.canGoBack?.() && (

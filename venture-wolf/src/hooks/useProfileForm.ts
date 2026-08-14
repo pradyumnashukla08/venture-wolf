@@ -11,6 +11,13 @@ export const validateLinkedIn = (url: string) => {
   return /^https:\/\/(www\.)?linkedin\.com\/.+$/.test(url);
 };
 
+export const validateUrl = (url: string) => {
+  if (!url) return true;
+  // Allows optional http(s)://, requires domain name and a valid TLD (2+ chars like .in, .tech, .com)
+  const pattern = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/;
+  return pattern.test(url.trim());
+};
+
 export const useProfileForm = () => {
   const { session } = useAuth();
   const { setStartupStage, setProfileImage } = useProfileStore();

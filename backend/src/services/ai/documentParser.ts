@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const ai = new GoogleGenAI({});
 
-export async function extractDataRoomContext(documentUrls: string[]): Promise<string> {
+export async function extractDataRoomContext(documentUrls: string[], userId: string): Promise<string> {
   if (!documentUrls || documentUrls.length === 0) {
     return 'No additional documents provided.';
   }
@@ -15,6 +15,11 @@ export async function extractDataRoomContext(documentUrls: string[]): Promise<st
     try {
       if (!url.includes(TRUSTED_DOMAIN)) {
         throw new Error('Security Alert: Unauthorized document source blocked.');
+      }
+
+      // SECURITY FIX: Prevent IDOR / Path Traversal
+      if (!url.includes(`/${userId}/`)) {
+        throw new Error(`Security Alert: Unauthorized access to another user's document blocked.`);
       }
 
       // Fetch the file buffer

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "WowFund",
-    "slug": "wowfund",
+    "name": "WaouFund",
+    "slug": "waoufund",
     "scheme": "venturewolf",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,7 +11,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.pradyumnashukla.wowfund",
+      "package": "com.pradyumnashukla.waoufund",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

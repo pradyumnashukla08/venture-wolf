@@ -12,7 +12,7 @@ import { apiClient } from '../services/apiClient';
 import { supabase } from '../lib/supabase';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { AIDisclaimer } from '../components/AIDisclaimer';
-import { useProfileForm, validateLinkedIn } from '../hooks/useProfileForm';
+import { useProfileForm, validateLinkedIn, validateUrl } from '../hooks/useProfileForm';
 
 const AISparkleInput = ({ 
   label, 
@@ -92,6 +92,7 @@ const AISparkleInput = ({
         textAlignVertical={multiline ? 'top' : 'center'}
         editable={!isProcessing}
         keyboardType={keyboardType}
+        scrollEnabled={!multiline ? undefined : false}
       />
       {description && <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{description}</Text>}
     </View>
@@ -114,7 +115,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
   return (
     <KeyboardAvoidingView 
       style={styles.fullScreen} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
     >
       <ResponsiveContainer>
@@ -123,6 +124,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
           contentContainerStyle={styles.scrollPadding} 
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
         >
           
 
@@ -242,7 +244,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>COMPANY LEGAL NAME</Text>
-                <TextInput style={styles.input} placeholder="e.g., WowFund Inc." placeholderTextColor="#94A3B8" value={formData.companyName} onChangeText={v => handleChange('companyName', v)} />
+                <TextInput style={styles.input} placeholder="e.g., WaouFund Inc." placeholderTextColor="#94A3B8" value={formData.companyName} onChangeText={v => handleChange('companyName', v)} />
               </View>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>IS COMPANY REGISTERED?</Text>
@@ -390,11 +392,61 @@ export const FounderProfileEditor = ({ navigation }: any) => {
 
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>TOP 3 COMPETITORS</Text>
-              <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between', gap: 12 }}>
-                <TextInput style={[styles.input, { flex: 1 }]} placeholder="Competitor 1" placeholderTextColor="#94A3B8" value={formData.competitor1} onChangeText={v => handleChange('competitor1', v)} />
-                <TextInput style={[styles.input, { flex: 1 }]} placeholder="Competitor 2" placeholderTextColor="#94A3B8" value={formData.competitor2} onChangeText={v => handleChange('competitor2', v)} />
-                <TextInput style={[styles.input, { flex: 1 }]} placeholder="Competitor 3" placeholderTextColor="#94A3B8" value={formData.competitor3} onChangeText={v => handleChange('competitor3', v)} />
+              <Text style={styles.label}>TOP 3 COMPETITORS (WEBSITE LINKS - MIN 2)</Text>
+              <View style={{ flexDirection: 'column', gap: 12 }}>
+                <View>
+                  <TextInput 
+                    style={[styles.input, !validateUrl(formData.competitor1) && { borderColor: '#EF4444', borderWidth: 1 }]} 
+                    placeholder="e.g. competitor.com" 
+                    placeholderTextColor="#94A3B8" 
+                    value={formData.competitor1} 
+                    onChangeText={v => handleChange('competitor1', v)} 
+                    keyboardType="url"
+                    autoCapitalize="none"
+                    onBlur={() => {
+                      if (formData.competitor1 !== '' && !validateUrl(formData.competitor1)) {
+                        handleChange('competitor1', '');
+                      }
+                    }}
+                  />
+                  {!validateUrl(formData.competitor1) && formData.competitor1 !== '' && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>Please enter a valid website URL</Text>}
+                </View>
+                
+                <View>
+                  <TextInput 
+                    style={[styles.input, !validateUrl(formData.competitor2) && { borderColor: '#EF4444', borderWidth: 1 }]} 
+                    placeholder="e.g. rival.in" 
+                    placeholderTextColor="#94A3B8" 
+                    value={formData.competitor2} 
+                    onChangeText={v => handleChange('competitor2', v)} 
+                    keyboardType="url"
+                    autoCapitalize="none"
+                    onBlur={() => {
+                      if (formData.competitor2 !== '' && !validateUrl(formData.competitor2)) {
+                        handleChange('competitor2', '');
+                      }
+                    }}
+                  />
+                  {!validateUrl(formData.competitor2) && formData.competitor2 !== '' && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>Please enter a valid website URL</Text>}
+                </View>
+
+                <View>
+                  <TextInput 
+                    style={[styles.input, !validateUrl(formData.competitor3) && { borderColor: '#EF4444', borderWidth: 1 }]} 
+                    placeholder="e.g. startup.tech (Optional)" 
+                    placeholderTextColor="#94A3B8" 
+                    value={formData.competitor3} 
+                    onChangeText={v => handleChange('competitor3', v)} 
+                    keyboardType="url"
+                    autoCapitalize="none"
+                    onBlur={() => {
+                      if (formData.competitor3 !== '' && !validateUrl(formData.competitor3)) {
+                        handleChange('competitor3', '');
+                      }
+                    }}
+                  />
+                  {!validateUrl(formData.competitor3) && formData.competitor3 !== '' && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>Please enter a valid website URL</Text>}
+                </View>
               </View>
             </View>
 
@@ -825,7 +877,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                 if (!formData.tam) missing.push("TAM");
                 if (!formData.sam) missing.push("SAM");
                 if (!formData.som) missing.push("SOM");
-                if (!formData.competitor1 || !formData.competitor2 || !formData.competitor3) missing.push("Top 3 Competitors");
+                if (!formData.competitor1 || !validateUrl(formData.competitor1) || !formData.competitor2 || !validateUrl(formData.competitor2)) missing.push("Top 2 Competitors (Valid URLs)");
                 if (!formData.distributionMoat) missing.push("Core Distribution Moat");
 
                 // Fundraising Ask
@@ -879,10 +931,17 @@ export const FounderProfileEditor = ({ navigation }: any) => {
               } else {
                 if (Platform.OS === 'web') {
                   window.alert('Profile saved successfully!');
+                  navigation.navigate('ImportCenter');
                 } else {
-                  Alert.alert('Success', 'Profile saved successfully!');
+                  Alert.alert(
+                    'Success', 
+                    'Profile saved successfully! Would you like to proceed to the Data Room?',
+                    [
+                      { text: 'Stay Here', style: 'cancel' },
+                      { text: 'Go to Data Room', onPress: () => navigation.navigate('ImportCenter') }
+                    ]
+                  );
                 }
-                // Don't auto-navigate if they are just editing an already complete profile
               }
             }}
           >

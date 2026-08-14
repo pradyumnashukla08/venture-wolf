@@ -1,6 +1,6 @@
 // Forces IDE cache refresh
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../constants/theme';
@@ -9,10 +9,93 @@ import type { GTMStrategy } from '../types/evaluation';
 import { useProfileStore } from '../store/useProfileStore';
 import { EcosystemEmptyState } from '../components/EcosystemEmptyState';
 import { AIDisclaimer } from '../components/AIDisclaimer';
+import { apiClient } from '../services/apiClient';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { Image } from 'react-native';
 
 export const GTMStrategyScreen = ({ navigation }: any) => {
   const { isTabletOrFold: isTablet } = useResponsiveLayout();
-  const { evaluationResult, processedDocIds } = useProfileStore();
+  const { evaluationResult, processedDocIds, setEvaluationResult } = useProfileStore();
+  
+  const [isVerifyModalVisible, setIsVerifyModalVisible] = useState(false);
+  const [selectedSprint, setSelectedSprint] = useState<{exp: any, index: number} | null>(null);
+  const [proofText, setProofText] = useState('');
+  const [proofImageUri, setProofImageUri] = useState<string | null>(null);
+  const [proofImageBase64, setProofImageBase64] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationFeedback, setVerificationFeedback] = useState<string | null>(null);
+
+  const openVerifyModal = (exp: any, index: number) => {
+    setSelectedSprint({ exp, index });
+    setProofText('');
+    setProofImageUri(null);
+    setProofImageBase64(null);
+    setVerificationFeedback(null);
+    setIsVerifyModalVisible(true);
+  };
+
+  const pickImage = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setProofImageUri(asset.uri);
+        
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: 'base64',
+        });
+        setProofImageBase64(base64);
+      }
+    } catch (err) {
+      console.log('Error picking image', err);
+      Alert.alert('Error', 'Could not select image.');
+    }
+  };
+
+  const handleVerifySprint = async () => {
+    if ((!proofText.trim() && !proofImageBase64) || !selectedSprint) return;
+    
+    setIsVerifying(true);
+    setVerificationFeedback(null);
+    try {
+      const response = await apiClient.post('/evaluate/verify-sprint', {
+        sprintTitle: selectedSprint.exp.title,
+        sprintDesc: selectedSprint.exp.description,
+        proofText: proofText,
+        proofImageBase64: proofImageBase64
+      });
+
+      if (response.data?.success && response.data?.verified) {
+        Alert.alert("Verified!", "Great job! Your fundability score has increased.");
+        
+        const newEval = JSON.parse(JSON.stringify(evaluationResult));
+        if (newEval.gtm_strategy && newEval.gtm_strategy.experiments) {
+          newEval.gtm_strategy.experiments[selectedSprint.index].status = 'Completed';
+          if (selectedSprint.index + 1 < newEval.gtm_strategy.experiments.length) {
+            newEval.gtm_strategy.experiments[selectedSprint.index + 1].status = 'Active';
+          }
+        }
+        
+        newEval.overall_score = Math.min(100, (newEval.overall_score || 0) + 2);
+        newEval.execution_score = Math.min(100, (newEval.execution_score || 0) + 5);
+        
+        setEvaluationResult(newEval);
+        setIsVerifyModalVisible(false);
+      } else {
+        setVerificationFeedback(response.data?.feedback || "Proof was not sufficient.");
+      }
+    } catch (error) {
+      console.error('Verify error:', error);
+      Alert.alert('Error', 'Failed to reach AI verifier. Please try again.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
   
   const hasRequiredDocs = processedDocIds.includes('pitch_deck');
 
@@ -145,27 +228,40 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
           <View style={styles.timelineContainer}>
             {experiments.map((exp: any, index: number) => {
               const isActive = exp.status === 'Active';
+              const isCompleted = exp.status === 'Completed';
               return (
                 <React.Fragment key={index}>
                   <View style={styles.timelineNode}>
-                    <View style={[styles.timelineCircle, { borderColor: isActive ? '#DBEAFE' : '#E2E8F0', backgroundColor: isActive ? '#EFF6FF' : '#F8FAFC' }]}>
+                    <View style={[styles.timelineCircle, { borderColor: isCompleted ? '#A7F3D0' : isActive ? '#DBEAFE' : '#E2E8F0', backgroundColor: isCompleted ? '#D1FAE5' : isActive ? '#EFF6FF' : '#F8FAFC' }]}>
                       {isActive && <Ionicons name="flash" size={10} color={theme.colors.primary} />}
+                      {isCompleted && <Ionicons name="checkmark-sharp" size={12} color="#10B981" />}
                     </View>
-                    <View style={[styles.timelineContent, isActive ? styles.activeSprintCard : { padding: 4 }]}>
+                    <TouchableOpacity 
+                      activeOpacity={isActive ? 0.7 : 1}
+                      onPress={() => isActive ? openVerifyModal(exp, index) : null}
+                      style={[styles.timelineContent, isActive ? styles.activeSprintCard : { padding: 4 }]}
+                    >
                       {isActive ? (
                         <View style={styles.sprintHeader}>
                           <Text style={styles.sprintLabel}>SPRINT {index + 1}</Text>
                           <View style={styles.inProgressBadge}>
                             <View style={styles.pulsingDot} />
-                            <Text style={styles.inProgressText}>ACTIVE</Text>
+                            <Text style={styles.inProgressText}>ACTIVE - TAP TO VERIFY</Text>
+                          </View>
+                        </View>
+                      ) : isCompleted ? (
+                        <View style={styles.sprintHeader}>
+                          <Text style={[styles.sprintLabel, { color: '#10B981' }]}>SPRINT {index + 1}</Text>
+                          <View style={[styles.inProgressBadge, { backgroundColor: '#ECFDF5' }]}>
+                            <Text style={[styles.inProgressText, { color: '#10B981' }]}>COMPLETED</Text>
                           </View>
                         </View>
                       ) : (
                         <Text style={[styles.sprintLabel, { color: '#94A3B8' }]}>SPRINT {index + 1} (UPCOMING)</Text>
                       )}
-                      <Text style={styles.sprintTitle}>{exp.title}</Text>
+                      <Text style={[styles.sprintTitle, isCompleted && { textDecorationLine: 'line-through', color: '#94A3B8' }]}>{exp.title}</Text>
                       <Text style={styles.sprintDesc}>{exp.description}</Text>
-                    </View>
+                    </TouchableOpacity>
                   </View>
                   {index < experiments.length - 1 && <View style={styles.timelineLine} />}
                 </React.Fragment>
@@ -178,6 +274,71 @@ export const GTMStrategyScreen = ({ navigation }: any) => {
         </View>
 
       </ResponsiveScrollContainer>
+
+      <Modal visible={isVerifyModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsVerifyModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Verify Completion</Text>
+            <TouchableOpacity onPress={() => setIsVerifyModalVisible(false)} style={styles.modalCloseBtn}>
+              <Ionicons name="close" size={24} color="#0F172A" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.chatScroll} contentContainerStyle={styles.chatScrollContent}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8 }}>{selectedSprint?.exp.title}</Text>
+            <Text style={{ fontSize: 14, color: '#64748B', marginBottom: 24 }}>{selectedSprint?.exp.description}</Text>
+            
+            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0F172A', marginBottom: 8 }}>Proof of Execution</Text>
+            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 12 }}>Describe exactly what you did, the metrics you achieved, or paste a link to your results. Devang AI will verify this proof.</Text>
+            
+            <TextInput
+              style={styles.proofInput}
+              value={proofText}
+              onChangeText={setProofText}
+              placeholder="e.g. I ran LinkedIn ads with $500 budget and got 50 signups at $10 CAC..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              textAlignVertical="top"
+            />
+            
+            {proofImageUri ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: proofImageUri }} style={styles.imagePreview} />
+                <TouchableOpacity style={styles.removeImageBtn} onPress={() => { setProofImageUri(null); setProofImageBase64(null); }}>
+                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.attachBtn} onPress={pickImage}>
+                <Ionicons name="image-outline" size={20} color="#3B82F6" />
+                <Text style={styles.attachBtnText}>Attach Screenshot Proof</Text>
+              </TouchableOpacity>
+            )}
+            
+            {verificationFeedback && (
+              <View style={styles.feedbackBox}>
+                <Ionicons name="warning-outline" size={20} color="#EF4444" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text style={styles.feedbackText}>{verificationFeedback}</Text>
+              </View>
+            )}
+            
+            <TouchableOpacity 
+              style={[styles.verifyBtn, ((!proofText.trim() && !proofImageBase64) || isVerifying) && styles.verifyBtnDisabled]} 
+              onPress={handleVerifySprint}
+              disabled={(!proofText.trim() && !proofImageBase64) || isVerifying}
+            >
+              {isVerifying ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.verifyBtnText}>Verify with AI</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -441,5 +602,123 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     lineHeight: 20,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  chatScroll: {
+    flex: 1,
+  },
+  chatScrollContent: {
+    padding: 20,
+  },
+  proofInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 16,
+    height: 150,
+    fontSize: 15,
+    color: '#0F172A',
+    marginBottom: 24,
+    ...theme.shadows.premiumLight,
+  },
+  verifyBtn: {
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  verifyBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  verifyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  feedbackBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  feedbackText: {
+    color: '#EF4444',
+    fontSize: 14,
+    flex: 1,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  attachBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderStyle: 'dashed',
+    marginBottom: 24,
+    justifyContent: 'center',
+  },
+  attachBtnText: {
+    color: '#3B82F6',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    marginBottom: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 150,
+    resizeMode: 'cover',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
   },
 });
