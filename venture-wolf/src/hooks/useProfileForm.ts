@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
 import { FundingStage } from '../types/schema';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +37,7 @@ export const useProfileForm = () => {
     // Core
     companyName: '',
     websiteUrl: '',
+    companyType: '',
     isRegistered: false,
     registrationNo: '',
     sector: 'SaaS',
@@ -212,17 +214,19 @@ export const useProfileForm = () => {
     handleChange('team', newTeam);
   };
 
-  const mockAvatars = [
-    'https://randomuser.me/api/portraits/men/32.jpg',
-    'https://randomuser.me/api/portraits/women/44.jpg',
-    'https://randomuser.me/api/portraits/men/67.jpg',
-    '', // empty to test initials
-  ];
+  const handleImageChange = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+      });
 
-  const handleImageChange = () => {
-    const currentIndex = mockAvatars.indexOf(formData.profileImage || '');
-    const nextIndex = (currentIndex + 1) % mockAvatars.length;
-    handleChange('profileImage', mockAvatars[nextIndex]);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        handleChange('profileImage', result.assets[0].uri);
+      }
+    } catch (error) {
+      console.log('Error picking image:', error);
+    }
   };
 
   return {

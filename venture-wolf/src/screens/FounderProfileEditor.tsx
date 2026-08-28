@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, ScrollView, Platform, useWindowDimensions, Animated, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Platform, Animated, Alert } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../constants/theme';
@@ -23,7 +24,8 @@ const AISparkleInput = ({
   contextData,
   instruction,
   keyboardType = 'default',
-  description
+  description,
+  hideSparkle = false
 }: { 
   label: string, 
   value: string, 
@@ -33,7 +35,8 @@ const AISparkleInput = ({
   contextData?: any,
   instruction?: string,
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad' | 'url',
-  description?: string
+  description?: string,
+  hideSparkle?: boolean
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -71,12 +74,14 @@ const AISparkleInput = ({
     <View style={styles.inputGroup}>
       <View style={styles.labelRowWithSparkle}>
         <Text style={styles.label}>{label}</Text>
+        {!hideSparkle && (
         <TouchableOpacity activeOpacity={0.6} onPress={handleSparkle} style={styles.sparkleButton}>
           <Animated.View style={{ opacity: pulseAnim, flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name="sparkles" size={14} color="#38BDF8" />
             <Text style={styles.sparkleText}>AI Assist</Text>
           </Animated.View>
         </TouchableOpacity>
+        )}
       </View>
       <TextInput 
         style={[
@@ -113,22 +118,18 @@ export const FounderProfileEditor = ({ navigation }: any) => {
   } = useProfileForm();
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.fullScreen} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
-    >
+    <View style={styles.fullScreen}>
       <ResponsiveContainer>
-        <ScrollView 
+        <KeyboardAwareScrollView 
           style={styles.scrollContent} 
           contentContainerStyle={styles.scrollPadding} 
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={true}
+          enableOnAndroid={true}
+          extraScrollHeight={100}
         >
           
-
-
           {/* TOP NAV */}
           <View style={styles.topNavRow}>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -203,30 +204,28 @@ export const FounderProfileEditor = ({ navigation }: any) => {
               </View>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>EMAIL ADDRESS</Text>
-                <TextInput style={[styles.input, { backgroundColor: '#F8FAFC', color: '#64748B' }]} placeholder="email@example.com" value={formData.email} editable={false} autoCapitalize="none" />
+                <TextInput style={styles.input} placeholder="email@example.com" placeholderTextColor="#94A3B8" value={formData.email} onChangeText={v => handleChange('email', v)} autoCapitalize="none" keyboardType="email-address" />
               </View>
             </View>
 
             <Text style={[styles.label, { marginTop: 16, marginBottom: 12 }]}>KEY TEAM MEMBERS ({formData.team.length}/4)</Text>
             {formData.team.map((member, idx) => (
-              <View key={idx} style={{ marginBottom: 12 }}>
-                <View style={styles.teamMemberRow}>
-                  <TextInput style={[styles.input, { flex: 2, marginRight: 8 }]} placeholder="Name" placeholderTextColor="#94A3B8" value={member.name} onChangeText={v => updateTeamMember(idx, 'name', v)} />
-                  <TextInput style={[styles.input, { flex: 1, marginRight: 8 }]} placeholder="Role" placeholderTextColor="#94A3B8" value={member.role} onChangeText={v => updateTeamMember(idx, 'role', v)} />
-                  <TextInput 
-                    style={[styles.input, { flex: 2 }, !validateLinkedIn(member.linkedin) && { borderColor: '#EF4444', borderWidth: 1 }]} 
-                    placeholder="https://linkedin.com/in/..." 
-                    placeholderTextColor="#94A3B8" 
-                    value={member.linkedin} 
-                    onChangeText={v => updateTeamMember(idx, 'linkedin', v)}
-                    onBlur={() => {
-                      if (member.linkedin !== '' && !validateLinkedIn(member.linkedin)) {
-                        updateTeamMember(idx, 'linkedin', '');
-                      }
-                    }}
-                    autoCapitalize="none" 
-                  />
-                </View>
+              <View key={idx} style={{ marginBottom: 16, padding: 16, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                <TextInput style={[styles.input, { marginBottom: 8, backgroundColor: '#FFFFFF' }]} placeholder="Name" placeholderTextColor="#94A3B8" value={member.name} onChangeText={v => updateTeamMember(idx, 'name', v)} />
+                <TextInput style={[styles.input, { marginBottom: 8, backgroundColor: '#FFFFFF' }]} placeholder="Role" placeholderTextColor="#94A3B8" value={member.role} onChangeText={v => updateTeamMember(idx, 'role', v)} />
+                <TextInput 
+                  style={[styles.input, { backgroundColor: '#FFFFFF' }, !validateLinkedIn(member.linkedin) && { borderColor: '#EF4444', borderWidth: 1 }]} 
+                  placeholder="https://linkedin.com/in/..." 
+                  placeholderTextColor="#94A3B8" 
+                  value={member.linkedin} 
+                  onChangeText={v => updateTeamMember(idx, 'linkedin', v)}
+                  onBlur={() => {
+                    if (member.linkedin !== '' && !validateLinkedIn(member.linkedin)) {
+                      updateTeamMember(idx, 'linkedin', '');
+                    }
+                  }}
+                  autoCapitalize="none" 
+                />
                 {!validateLinkedIn(member.linkedin) && member.linkedin !== '' && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>Please enter a full LinkedIn URL (https://...)</Text>}
               </View>
             ))}
@@ -247,23 +246,39 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                 <TextInput style={styles.input} placeholder="e.g., WaouFund Inc." placeholderTextColor="#94A3B8" value={formData.companyName} onChangeText={v => handleChange('companyName', v)} />
               </View>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
-                <Text style={styles.label}>IS COMPANY REGISTERED?</Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                  <TouchableOpacity 
-                    activeOpacity={0.7}
-                    onPress={() => handleChange('isRegistered', true)}
-                    style={[styles.outlineButton, { flex: 1, backgroundColor: formData.isRegistered ? '#0F172A' : 'transparent', borderColor: formData.isRegistered ? '#0F172A' : '#E2E8F0', marginBottom: 0 }]}
-                  >
-                    <Text style={[styles.outlineButtonText, { color: formData.isRegistered ? '#FFF' : '#475569' }]}>Yes</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    activeOpacity={0.7}
-                    onPress={() => handleChange('isRegistered', false)}
-                    style={[styles.outlineButton, { flex: 1, backgroundColor: !formData.isRegistered ? '#0F172A' : 'transparent', borderColor: !formData.isRegistered ? '#0F172A' : '#E2E8F0', marginBottom: 0 }]}
-                  >
-                    <Text style={[styles.outlineButtonText, { color: !formData.isRegistered ? '#FFF' : '#475569' }]}>Not Yet</Text>
-                  </TouchableOpacity>
+                <Text style={styles.label}>TYPE OF COMPANY SETUP</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                  {['Proprietorship', 'LLP', 'Private Limited', 'Public Limited', 'Not Registered Yet - Need Help'].map(type => (
+                    <TouchableOpacity 
+                      key={type} 
+                      activeOpacity={0.7}
+                      onPress={() => handleChange('companyType', type)}
+                      style={[styles.outlineButton, { backgroundColor: formData.companyType === type ? '#0F172A' : 'transparent', borderColor: formData.companyType === type ? '#0F172A' : '#E2E8F0', paddingVertical: 8, paddingHorizontal: 10 }]}
+                    >
+                      <Text style={[styles.outlineButtonText, { color: formData.companyType === type ? '#FFF' : '#475569', fontSize: 11 }]}>{type}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>IS COMPANY REGISTERED WITH DIPP/DPIIT?</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                <TouchableOpacity 
+                  activeOpacity={0.7}
+                  onPress={() => handleChange('isRegistered', true)}
+                  style={[styles.outlineButton, { flex: 1, backgroundColor: formData.isRegistered ? '#0F172A' : 'transparent', borderColor: formData.isRegistered ? '#0F172A' : '#E2E8F0', marginBottom: 0 }]}
+                >
+                  <Text style={[styles.outlineButtonText, { color: formData.isRegistered ? '#FFF' : '#475569' }]}>Yes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  activeOpacity={0.7}
+                  onPress={() => handleChange('isRegistered', false)}
+                  style={[styles.outlineButton, { flex: 1, backgroundColor: !formData.isRegistered ? '#0F172A' : 'transparent', borderColor: !formData.isRegistered ? '#0F172A' : '#E2E8F0', marginBottom: 0 }]}
+                >
+                  <Text style={[styles.outlineButtonText, { color: !formData.isRegistered ? '#FFF' : '#475569' }]}>Not Yet</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -481,7 +496,21 @@ export const FounderProfileEditor = ({ navigation }: any) => {
             <View style={{ flexDirection: isTablet ? 'row' : 'column', justifyContent: 'space-between' }}>
               <View style={[styles.inputGroup, { width: halfWidth }]}>
                 <Text style={styles.label}>EQUITY OFFERED (%)</Text>
-                <TextInput style={[styles.input, styles.heavyInput]} placeholder="e.g., 10-15%" placeholderTextColor="#94A3B8" value={formData.equityOffered} onChangeText={v => handleChange('equityOffered', v)} keyboardType="numeric" />
+                <View style={[styles.input, { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 0 }]}>
+                  <TextInput 
+                    style={[styles.heavyInput, { flex: 1, paddingHorizontal: 16 }]} 
+                    placeholder="e.g., 10" 
+                    placeholderTextColor="#94A3B8" 
+                    value={formData.equityOffered} 
+                    onChangeText={v => {
+                      let numericVal = v.replace(/[^0-9.]/g, '');
+                      if (numericVal !== '' && parseFloat(numericVal) > 100) numericVal = '100';
+                      handleChange('equityOffered', numericVal);
+                    }} 
+                    keyboardType="numeric" 
+                  />
+                  <Text style={{ fontSize: 16, color: '#0F172A', fontWeight: 'bold', paddingRight: 16 }}>%</Text>
+                </View>
                 <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>Percentage of company being sold. Typical range: 10% to 15%.</Text>
               </View>
               <View style={{ width: halfWidth }}>
@@ -494,6 +523,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   contextData={{ targetRaise: formData.targetRaise, sector: formData.sector, currency: formData.currency }}
                   instruction="Output ONLY a raw integer number representing capital already committed based on the target raise. For example: 5000000. Do NOT output currency symbols, commas, words, or text like 'L' or 'Cr'."
                   description="Amount of the target raise already committed by investors."
+                  hideSparkle={true}
                 />
               </View>
             </View>
@@ -516,6 +546,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ stage: formData.stage }}
                       instruction="Generate a realistic waitlist count for a Pre-Seed startup. Output ONLY the raw integer number."
                       description="Number of potential customers who have signed up."
+                      hideSparkle={true}
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
@@ -528,6 +559,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ stage: formData.stage }}
                       instruction="Generate a realistic beta conversion rate percentage. Output ONLY the raw integer number."
                       description="Percentage of waitlist users converting to active users."
+                      hideSparkle={true}
                     />
                   </View>
                 </View>
@@ -556,6 +588,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   contextData={{ sector: formData.sector, pitch: formData.pitch }}
                   instruction="Write a concise 2-sentence description of a critical problem in this sector and how it's validated."
                   description="The pain point your product addresses and how you validated it."
+                      hideSparkle={true}
                 />
                 <AISparkleInput
                   label="THE TEAM (Capability)"
@@ -566,6 +599,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                   contextData={{ sector: formData.sector, pitch: formData.pitch }}
                   instruction="Write a concise 2-sentence description of an ideal founding team's expertise for this startup."
                   description="Why your team has the right expertise to execute this idea."
+                      hideSparkle={true}
                 />
                 <View style={{ width: halfWidth }}>
                   <AISparkleInput
@@ -577,6 +611,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                     contextData={{ stage: formData.stage }}
                     instruction="Generate a realistic runway in months for a Pre-Seed startup. Output ONLY the raw integer number (e.g., 9)."
                     description="Number of months your current cash will last."
+                      hideSparkle={true}
                   />
                 </View>
               </>
@@ -595,6 +630,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ sector: formData.sector, stage: formData.stage, currency: formData.currency }}
                       instruction="Generate a realistic ARR/MRR for a Seed startup. Output ONLY the raw integer number."
                       description="Annual or Monthly Recurring Revenue."
+                      hideSparkle={true}
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
@@ -607,6 +643,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ sector: formData.sector, stage: formData.stage }}
                       instruction="Generate realistic user/client traction for a Seed startup. Output ONLY the raw integer number (e.g., 1500)."
                       description="Total active users or clients currently on the platform."
+                      hideSparkle={true}
                     />
                   </View>
                 </View>
@@ -621,6 +658,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ stage: formData.stage }}
                       instruction="Generate a realistic Month-over-Month growth rate for a Seed startup. Output ONLY the raw integer number (e.g., 15)."
                       description="Month-over-Month Growth."
+                      hideSparkle={true}
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
@@ -633,6 +671,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ sector: formData.sector }}
                       instruction="Generate a realistic Gross Margin percentage for this sector. Output ONLY the raw integer number (e.g., 70)."
                       description="Revenue minus cost of goods sold, divided by revenue."
+                      hideSparkle={true}
                     />
                   </View>
                 </View>
@@ -646,6 +685,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                     contextData={{ sector: formData.sector, currency: formData.currency }}
                     instruction="Generate a realistic CAC for this sector. Output ONLY the raw integer number (e.g., 500)."
                     description="Cost to acquire a single customer."
+                      hideSparkle={true}
                   />
                 </View>
               </>
@@ -664,6 +704,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ stage: formData.stage, sector: formData.sector, currency: formData.currency }}
                       instruction="Generate a realistic MRR for a Series-A startup. Output ONLY the raw integer number."
                       description="Monthly Recurring Revenue."
+                      hideSparkle={true}
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
@@ -676,6 +717,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ sector: formData.sector }}
                       instruction="Generate a realistic Churn Rate percentage. Output ONLY the raw integer number."
                       description="Percentage of customers lost over a given period."
+                      hideSparkle={true}
                     />
                   </View>
                 </View>
@@ -701,6 +743,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ sector: formData.sector, currency: formData.currency }}
                       instruction="Generate a realistic CAC. Output ONLY the raw integer number (e.g., 1000)."
                       description="Cost to acquire a single customer."
+                      hideSparkle={true}
                     />
                   </View>
                 </View>
@@ -715,6 +758,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ stage: formData.stage, currency: formData.currency }}
                       instruction="Generate a realistic monthly burn rate for a Series-A startup. Output ONLY the raw integer number."
                       description="Amount spent monthly before generating positive cash flow."
+                      hideSparkle={true}
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
@@ -727,6 +771,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ stage: formData.stage }}
                       instruction="Generate a realistic runway in months for a Series-A startup. Output ONLY the raw integer number (e.g., 18)."
                       description="Number of months until cash runs out."
+                      hideSparkle={true}
                     />
                   </View>
                 </View>
@@ -770,6 +815,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ stage: formData.stage, sector: formData.sector, currency: formData.currency }}
                       instruction="Generate a realistic total annual revenue for a Series-B startup. Output ONLY the raw integer number."
                       description="Total revenue generated over the past 12 months."
+                      hideSparkle={true}
                     />
                   </View>
                   <View style={{ width: halfWidth }}>
@@ -782,6 +828,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                       contextData={{ sector: formData.sector }}
                       instruction="Generate a realistic NRR percentage for a Series-B startup. Output ONLY the raw integer number."
                       description="Percentage of revenue retained from existing customers, including expansions/upsells."
+                      hideSparkle={true}
                     />
                   </View>
                 </View>
@@ -844,6 +891,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
                     contextData={{ sector: formData.sector }}
                     instruction="Generate a realistic market share percentage. Output ONLY the raw integer number."
                     description="Estimated percentage of your target market currently captured."
+                      hideSparkle={true}
                   />
                 </View>
               </>
@@ -851,7 +899,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
 
             <AIDisclaimer />
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <View style={styles.stickyFooter}>
           <TouchableOpacity 
@@ -951,7 +999,7 @@ export const FounderProfileEditor = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
       </ResponsiveContainer>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
@@ -1005,7 +1053,7 @@ const styles = StyleSheet.create({
   dashedButton: { borderWidth: 1, borderStyle: 'dashed', borderColor: '#CBD5E1', borderRadius: 8, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   dashedButtonText: { color: '#64748B', fontWeight: 'bold', fontSize: 12, letterSpacing: 0.5 },
   
-  teamMemberRow: { flexDirection: 'row', marginBottom: 12 },
+
 
   stickyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 10 },
   primaryButton: { backgroundColor: theme.colors.primary, paddingVertical: 18, borderRadius: 12, alignItems: 'center' },

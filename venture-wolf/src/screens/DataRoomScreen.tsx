@@ -11,6 +11,8 @@ import { ResponsiveScrollContainer } from '../components/ResponsiveContainer';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
+import * as Sharing from 'expo-sharing';
+import { Asset } from 'expo-asset';
 
 const LOADING_STATES = [
   "Sanitizing Data...",
@@ -253,6 +255,31 @@ export const DataRoomScreen = ({ navigation }: any) => {
     );
   };
 
+  const downloadTemplate = async (templateAsset: any, filename: string) => {
+    try {
+      const asset = await Asset.loadAsync(templateAsset);
+      const localUri = asset[0].localUri;
+      if (!localUri) {
+        Alert.alert('Error', 'Could not load template file.');
+        return;
+      }
+      
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Error', 'Sharing is not available on this device');
+        return;
+      }
+      
+      await Sharing.shareAsync(localUri, {
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        dialogTitle: `Download ${filename}`,
+        UTI: 'com.microsoft.excel.xls'
+      });
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
+  };
+
   return (
     <View style={styles.wrapper}>
       <ResponsiveScrollContainer contentContainerStyle={styles.container}>
@@ -292,6 +319,26 @@ export const DataRoomScreen = ({ navigation }: any) => {
                   )}
                 </TouchableOpacity>
 
+                {!isUploaded && (doc.id === 'basic_cap' || doc.id === 'std_cap') && (
+                   <TouchableOpacity 
+                     style={styles.inlineTemplateButton}
+                     onPress={() => downloadTemplate(require('../../assets/templates/Cap_Table_Format.xlsx'), 'Cap_Table_Format.xlsx')}
+                   >
+                     <Ionicons name="download-outline" size={18} color={theme.colors.primary} />
+                     <Text style={styles.inlineTemplateText}>Download Cap Table Template</Text>
+                   </TouchableOpacity>
+                )}
+
+                {!isUploaded && doc.id === 'spend_plan' && (
+                   <TouchableOpacity 
+                     style={styles.inlineTemplateButton}
+                     onPress={() => downloadTemplate(require('../../assets/templates/Employee_Record_Format.xlsx'), 'Employee_Record_Format.xlsx')}
+                   >
+                     <Ionicons name="download-outline" size={18} color={theme.colors.primary} />
+                     <Text style={styles.inlineTemplateText}>Download Employee Record Template</Text>
+                   </TouchableOpacity>
+                )}
+
                 {isUploaded && uploadedDoc?.path && (
                   <View style={{ position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 8 }}>
                     <TouchableOpacity 
@@ -314,24 +361,26 @@ export const DataRoomScreen = ({ navigation }: any) => {
         </View>
 
         {!isProcessing && (
-          <View style={styles.guidelinesCard}>
-            <View style={styles.guidelineHeader}>
-              <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
-              <Text style={styles.guidelineTitle}>How AI Extraction Works</Text>
+          <>
+            <View style={styles.guidelinesCard}>
+              <View style={styles.guidelineHeader}>
+                <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
+                <Text style={styles.guidelineTitle}>How AI Extraction Works</Text>
+              </View>
+              <View style={styles.guidelineRow}>
+                <Ionicons name="scan-outline" size={18} color="#64748B" />
+                <Text style={styles.guidelineText}>Our engine scans your deck for 5 core vectors: Product, Market, Finance, Team, and Execution.</Text>
+              </View>
+              <View style={styles.guidelineRow}>
+                <Ionicons name="shield-checkmark-outline" size={18} color="#64748B" />
+                <Text style={styles.guidelineText}>Financial metrics are cross-referenced with your uploaded Excel/CSV data to calculate LTV:CAC and runway.</Text>
+              </View>
+              <View style={styles.guidelineRow}>
+                <Ionicons name="bulb-outline" size={18} color="#64748B" />
+                <Text style={styles.guidelineText}>Tip: Keep slides clean and use standard fonts. Avoid heavy text blocks for maximum AI extraction accuracy.</Text>
+              </View>
             </View>
-            <View style={styles.guidelineRow}>
-              <Ionicons name="scan-outline" size={18} color="#64748B" />
-              <Text style={styles.guidelineText}>Our engine scans your deck for 5 core vectors: Product, Market, Finance, Team, and Execution.</Text>
-            </View>
-            <View style={styles.guidelineRow}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#64748B" />
-              <Text style={styles.guidelineText}>Financial metrics are cross-referenced with your uploaded Excel/CSV data to calculate LTV:CAC and runway.</Text>
-            </View>
-            <View style={styles.guidelineRow}>
-              <Ionicons name="bulb-outline" size={18} color="#64748B" />
-              <Text style={styles.guidelineText}>Tip: Keep slides clean and use standard fonts. Avoid heavy text blocks for maximum AI extraction accuracy.</Text>
-            </View>
-          </View>
+          </>
         )}
 
         {isProcessing && (
@@ -453,6 +502,24 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     lineHeight: 20,
     flex: 1,
+  },
+  inlineTemplateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  inlineTemplateText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginLeft: 8,
   },
 
   loadingContainer: { alignItems: 'center', marginTop: 16 },
