@@ -5,6 +5,7 @@ import { generateMarketAssumptions } from '../services/ai/financeAnalyst.js';
 import { extractDataRoomContext } from '../services/ai/documentParser.js';
 import { injectAndExtractFinancials } from '../services/finance/excelInjector.js';
 import { requireAuth } from '../middleware/auth.js';
+import { traceAssumptions, FORECAST_DISCLOSURE } from '../services/provenance/financeProvenance.js';
 import { ZodError } from 'zod';
 
 const router = Router();
@@ -46,6 +47,11 @@ router.post('/forecast', requireAuth, (req: Request, res: Response, next: NextFu
         success: true,
         data: {
           assumptionsGenerated: aiAssumptions,
+          // Every driver above was invented by the model, including the
+          // valuation. The client must be able to tell that apart from a
+          // measured figure, so the labelling travels with the response.
+          assumptionsProvenance: traceAssumptions(aiAssumptions as any),
+          disclosure: FORECAST_DISCLOSURE,
           projections: executionResults.summaryData,
           downloadUrl: executionResults.downloadUrl,
           highRiskOfRuin
