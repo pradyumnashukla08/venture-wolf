@@ -24,7 +24,7 @@ router.post('/forecast', requireAuth, (req: Request, res: Response, next: NextFu
       console.log('[PHASE 1.5] Multi-Modal Data Room parsing complete.');
 
       // Phase 1: Call context analyst model matching profile scope inputs
-      const aiAssumptions = await generateMarketAssumptions(
+      const { assumptions: aiAssumptions, corrections } = await generateMarketAssumptions(
         validatedBody.description,
         validatedBody.archetype,
         dataRoomContext
@@ -52,6 +52,10 @@ router.post('/forecast', requireAuth, (req: Request, res: Response, next: NextFu
           // measured figure, so the labelling travels with the response.
           assumptionsProvenance: traceAssumptions(aiAssumptions as any),
           disclosure: FORECAST_DISCLOSURE,
+          // Drivers the model proposed outside the India guardrails, and what
+          // they were corrected to. Shown, not hidden: the founder is entitled
+          // to know where the system overruled the forecast.
+          guardrailCorrections: corrections,
           projections: executionResults.summaryData,
           downloadUrl: executionResults.downloadUrl,
           highRiskOfRuin

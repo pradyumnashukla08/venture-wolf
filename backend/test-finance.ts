@@ -11,12 +11,15 @@ async function run() {
       'SAAS',
       ''
     );
-    console.log('AI Assumptions Generated:', aiAssumptions);
+    console.log('AI Assumptions Generated:', aiAssumptions.assumptions);
+    if (aiAssumptions.corrections.length > 0) {
+      console.log('Guardrail corrections applied:', aiAssumptions.corrections);
+    }
 
     console.log('Injecting Financials...');
     const executionResults = await injectAndExtractFinancials(
       'SAAS',
-      aiAssumptions,
+      aiAssumptions.assumptions,
       'Test Corp'
     );
     console.log('Done:', executionResults.downloadUrl);
