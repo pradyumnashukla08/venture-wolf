@@ -7,7 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ForecastForm } from './ForecastForm';
 import { ForecastLoading } from './ForecastLoading';
 import { ProjectionsDashboard } from './ProjectionsDashboard';
-import { ForecastRequest, ForecastResponse } from './types';
+import { ForecastProvenance } from '../../components/ForecastProvenance';
+import { ForecastRequest, ForecastResponse, GuardrailCorrection, ValuationAudit } from './types';
 import { theme } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 
@@ -37,6 +38,13 @@ export const FinanceScreen = () => {
   const [assumptionsGenerated, setAssumptionsGenerated] = useState<any>(null);
   const [downloadUrl, setDownloadUrl] = useState<string>('');
   const [highRiskOfRuin, setHighRiskOfRuin] = useState<boolean>(false);
+
+  // Provenance travels with the forecast: what was assumed, where the India
+  // guardrails overruled the model, and whether the valuation is supported by
+  // anything. Undefined for results cached before this existed.
+  const [disclosure, setDisclosure] = useState<string | undefined>(undefined);
+  const [guardrailCorrections, setGuardrailCorrections] = useState<GuardrailCorrection[] | undefined>(undefined);
+  const [valuationAudit, setValuationAudit] = useState<ValuationAudit | undefined>(undefined);
   const [sectorChangedWarning, setSectorChangedWarning] = useState<boolean>(false);
 
   useEffect(() => {
@@ -66,6 +74,9 @@ export const FinanceScreen = () => {
           setAssumptionsGenerated(parsed.assumptionsGenerated);
           setDownloadUrl(parsed.downloadUrl);
           setHighRiskOfRuin(parsed.highRiskOfRuin);
+          setDisclosure(parsed.disclosure);
+          setGuardrailCorrections(parsed.guardrailCorrections);
+          setValuationAudit(parsed.valuationAudit);
           setCurrentView('DASHBOARD');
         }
       } catch (e) {
@@ -87,6 +98,9 @@ export const FinanceScreen = () => {
         setAssumptionsGenerated(parsed.assumptionsGenerated);
         setDownloadUrl(parsed.downloadUrl);
         setHighRiskOfRuin(parsed.highRiskOfRuin);
+        setDisclosure(parsed.disclosure);
+        setGuardrailCorrections(parsed.guardrailCorrections);
+        setValuationAudit(parsed.valuationAudit);
         setCurrentView('DASHBOARD');
         await AsyncStorage.setItem('@latest_forecast_cache', cachedResult).catch(() => {});
         return;
@@ -105,6 +119,9 @@ export const FinanceScreen = () => {
         setAssumptionsGenerated(responseData.assumptionsGenerated);
         setDownloadUrl(responseData.downloadUrl);
         setHighRiskOfRuin(responseData.highRiskOfRuin || false);
+        setDisclosure(responseData.disclosure);
+        setGuardrailCorrections(responseData.guardrailCorrections);
+        setValuationAudit(responseData.valuationAudit);
 
         // Cache the successful result
         const cachePayload = JSON.stringify({
@@ -112,6 +129,9 @@ export const FinanceScreen = () => {
           assumptionsGenerated: responseData.assumptionsGenerated,
           downloadUrl: responseData.downloadUrl,
           highRiskOfRuin: responseData.highRiskOfRuin || false,
+          disclosure: responseData.disclosure,
+          guardrailCorrections: responseData.guardrailCorrections,
+          valuationAudit: responseData.valuationAudit,
           archetype: formData.archetype,
         });
         await AsyncStorage.setItem(cacheKey, cachePayload).catch(() => {});
@@ -160,13 +180,20 @@ export const FinanceScreen = () => {
         return <ForecastLoading />;
       case 'DASHBOARD':
         return (
-          <ProjectionsDashboard 
-            projections={projectionsData} 
-            assumptions={assumptionsGenerated}
-            downloadUrl={downloadUrl} 
-            highRiskOfRuin={highRiskOfRuin}
-            onReset={handleReset}
-          />
+          <>
+            <ProjectionsDashboard 
+              projections={projectionsData} 
+              assumptions={assumptionsGenerated}
+              downloadUrl={downloadUrl} 
+              highRiskOfRuin={highRiskOfRuin}
+              onReset={handleReset}
+            />
+            <ForecastProvenance
+              disclosure={disclosure}
+              corrections={guardrailCorrections}
+              valuationAudit={valuationAudit}
+            />
+          </>
         );
       default:
         return null;
