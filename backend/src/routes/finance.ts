@@ -5,6 +5,8 @@ import { generateMarketAssumptions } from '../services/ai/financeAnalyst.js';
 import { extractDataRoomContext } from '../services/ai/documentParser.js';
 import { injectAndExtractFinancials } from '../services/finance/excelInjector.js';
 import { requireAuth } from '../middleware/auth.js';
+import { traceAssumptions, FORECAST_DISCLOSURE } from '../services/provenance/financeProvenance.js';
+import { assessValuation, auditProposedValuation } from '../domain/valuation/assess.js';
 import { ZodError } from 'zod';
 
 const router = Router();
@@ -23,7 +25,7 @@ router.post('/forecast', requireAuth, (req: Request, res: Response, next: NextFu
       console.log('[PHASE 1.5] Multi-Modal Data Room parsing complete.');
 
       // Phase 1: Call context analyst model matching profile scope inputs
-      const aiAssumptions = await generateMarketAssumptions(
+      const { assumptions: aiAssumptions, corrections } = await generateMarketAssumptions(
         validatedBody.description,
         validatedBody.archetype,
         dataRoomContext
@@ -46,6 +48,33 @@ router.post('/forecast', requireAuth, (req: Request, res: Response, next: NextFu
         success: true,
         data: {
           assumptionsGenerated: aiAssumptions,
+          // Every driver above was invented by the model, including the
+          // valuation. The client must be able to tell that apart from a
+          // measured figure, so the labelling travels with the response.
+          assumptionsProvenance: traceAssumptions(aiAssumptions as any),
+          disclosure: FORECAST_DISCLOSURE,
+          // Drivers the model proposed outside the India guardrails, and what
+          // they were corrected to. Shown, not hidden: the founder is entitled
+          // to know where the system overruled the forecast.
+          guardrailCorrections: corrections,
+          // The base-case valuation the model proposed, checked against the
+          // methods that can actually be run. It is audited rather than
+          // replaced: removing it would break the workbook and the client that
+          // reads it, and the honest intermediate step is to show the founder
+          // both the number and whether anything defensible supports it.
+          valuationAudit: (() => {
+            const startingMrr = aiAssumptions.Base?.initialMetric;
+            const assessment = assessValuation(
+              startingMrr ? { annualRevenue: startingMrr * 12 } : {},
+            );
+            return {
+              ...auditProposedValuation(aiAssumptions.Base?.estimatedValuation ?? 0, assessment),
+              methodsRun: assessment.kind === 'triangulated'
+                ? assessment.result.estimates.map((e) => e.method)
+                : assessment.ran,
+              missingInputs: assessment.missing,
+            };
+          })(),
           projections: executionResults.summaryData,
           downloadUrl: executionResults.downloadUrl,
           highRiskOfRuin

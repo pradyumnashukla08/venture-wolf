@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import evaluateRoute from './routes/evaluate.js';
 import generateRoute from './routes/generate.js';
 import financeRoute from './routes/finance.js';
+import readinessRoute from './routes/readiness.js';
 import { globalErrorHandler, registerProcessGuards } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -36,6 +37,9 @@ app.use(express.json());
 app.use('/api/evaluate', aiLimiter, evaluateRoute);
 app.use('/api/generate', aiLimiter, generateRoute);
 app.use('/api/finance', aiLimiter, financeRoute);
+// Readiness is pure computation with no model call, so it is not behind the AI
+// limiter: rate limiting it would throttle a client polling its own score.
+app.use('/api/readiness', readinessRoute);
 
 // Root endpoint for Uptime monitors
 app.get('/', (req, res) => {

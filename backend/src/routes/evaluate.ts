@@ -8,6 +8,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { startInvestorQA, evaluateInvestorVerdict, type DocumentInput } from '../services/ai/investorService.js';
+import { registryFrom } from '../services/provenance/registrySources.js';
+import { guardResponse, logReport } from '../services/provenance/aiGuard.js';
 
 const router = Router();
 
@@ -30,6 +32,7 @@ async function getFounderContext(startupId: string) {
   }
   return JSON.stringify(contextObj, null, 2);
 }
+
 
 router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Request, res: Response): Promise<void> => {
   let rawDocuments: { type: string; mimeType: string; localPath: string }[] = [];
@@ -99,6 +102,19 @@ router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Reque
     const { evaluateStartupMultimodal } = await import('../services/geminiService.js');
     const evaluation = await evaluateStartupMultimodal(stage, rawDocuments, founderProfileContext);
 
+    // Step 4.5: Provenance guard. The evaluation's prose is checked against the
+    // numbers the founder actually supplied; its scores are the model's own
+    // assessment and are deliberately left alone. In the default `report` mode
+    // nothing is rewritten — findings are logged and returned so the guard can
+    // be measured before it is allowed to withhold anything.
+    const factRegistry = await registryFrom({
+      texts: [founderProfileContext],
+      documents: rawDocuments,
+    });
+    const guarded = guardResponse(evaluation, factRegistry);
+    logReport(`evaluate startup=${startupId}`, guarded.report);
+    const checkedEvaluation = guarded.value;
+
     // Step 4: Database Persistence
     // Ensure the startup exists in the startups table to satisfy foreign key constraints
     const { error: startupErr } = await supabaseAdmin
@@ -117,8 +133,8 @@ router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Reque
         team_score: evaluation.team_score,
         market_score: evaluation.market_score,
         execution_score: evaluation.execution_score,
-        red_flags: evaluation.red_flags,
-        stage_advice: evaluation.stage_advice,
+        red_flags: checkedEvaluation.red_flags,
+        stage_advice: checkedEvaluation.stage_advice,
       })
       .select()
       .single();
@@ -136,12 +152,17 @@ router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Reque
         ...savedEvaluation,
         product_score: evaluation.product_score,
         traction_score: evaluation.traction_score,
-        questions: evaluation.questions,
+        questions: checkedEvaluation.questions,
         financial_metrics: evaluation.financial_metrics,
         gtm_strategy: evaluation.gtm_strategy,
         financial_forecast: evaluation.financial_forecast,
         traction_metrics: evaluation.traction_metrics,
         market_landscape: evaluation.market_landscape
+      },
+      provenance: {
+        mode: guarded.report.mode,
+        proseFieldsChecked: guarded.report.checked,
+        untraceableFigures: guarded.report.findings,
       },
     });
   } catch (error: any) {
