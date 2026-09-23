@@ -8,6 +8,14 @@
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
+
+    // Source files import each other with a ".ts" extension so the provenance
+    // tests can run on Node's built-in runner with nothing installed:
+    //   node --test src/services/provenance/<name>.test.ts
+    // rewriteRelativeImportExtensions keeps emitted JavaScript correct, so this
+    // costs nothing at build time.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "target": "esnext",
     "types": [],
     // For nodejs:

@@ -8,6 +8,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { startInvestorQA, evaluateInvestorVerdict, type DocumentInput } from '../services/ai/investorService.js';
+import { FactRegistry } from '../services/provenance/factRegistry.js';
+import { guardResponse, logReport } from '../services/provenance/aiGuard.js';
 
 const router = Router();
 
@@ -29,6 +31,34 @@ async function getFounderContext(startupId: string) {
     console.warn('Profile fetch warning:', e);
   }
   return JSON.stringify(contextObj, null, 2);
+}
+
+
+/**
+ * Index the numbers the founder actually gave us, so the guard can tell a
+ * quoted figure from an invented one.
+ *
+ * Only text sources can be indexed. A PDF pitch deck reaches Gemini as bytes
+ * and is never turned into text on this side, so figures that appear only in a
+ * PDF are invisible here and will be reported as unsupported. That is the main
+ * reason GUARD_MODE defaults to `report`: the registry is incomplete by
+ * construction until deck text extraction is wired in.
+ */
+async function buildFactRegistry(
+  profileContext: string,
+  documents: { mimeType: string; localPath: string }[],
+): Promise<FactRegistry> {
+  const registry = new FactRegistry().ingest(profileContext);
+
+  for (const doc of documents) {
+    if (!doc.mimeType.startsWith('text/')) continue;
+    try {
+      registry.ingest(await fs.promises.readFile(doc.localPath, 'utf-8'));
+    } catch (readErr: any) {
+      console.warn('[provenance] Could not index', doc.localPath, readErr?.message);
+    }
+  }
+  return registry;
 }
 
 router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Request, res: Response): Promise<void> => {
@@ -99,6 +129,16 @@ router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Reque
     const { evaluateStartupMultimodal } = await import('../services/geminiService.js');
     const evaluation = await evaluateStartupMultimodal(stage, rawDocuments, founderProfileContext);
 
+    // Step 4.5: Provenance guard. The evaluation's prose is checked against the
+    // numbers the founder actually supplied; its scores are the model's own
+    // assessment and are deliberately left alone. In the default `report` mode
+    // nothing is rewritten — findings are logged and returned so the guard can
+    // be measured before it is allowed to withhold anything.
+    const factRegistry = await buildFactRegistry(founderProfileContext, rawDocuments);
+    const guarded = guardResponse(evaluation, factRegistry);
+    logReport(`evaluate startup=${startupId}`, guarded.report);
+    const checkedEvaluation = guarded.value;
+
     // Step 4: Database Persistence
     // Ensure the startup exists in the startups table to satisfy foreign key constraints
     const { error: startupErr } = await supabaseAdmin
@@ -117,8 +157,8 @@ router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Reque
         team_score: evaluation.team_score,
         market_score: evaluation.market_score,
         execution_score: evaluation.execution_score,
-        red_flags: evaluation.red_flags,
-        stage_advice: evaluation.stage_advice,
+        red_flags: checkedEvaluation.red_flags,
+        stage_advice: checkedEvaluation.stage_advice,
       })
       .select()
       .single();
@@ -136,12 +176,17 @@ router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Reque
         ...savedEvaluation,
         product_score: evaluation.product_score,
         traction_score: evaluation.traction_score,
-        questions: evaluation.questions,
+        questions: checkedEvaluation.questions,
         financial_metrics: evaluation.financial_metrics,
         gtm_strategy: evaluation.gtm_strategy,
         financial_forecast: evaluation.financial_forecast,
         traction_metrics: evaluation.traction_metrics,
         market_landscape: evaluation.market_landscape
+      },
+      provenance: {
+        mode: guarded.report.mode,
+        proseFieldsChecked: guarded.report.checked,
+        untraceableFigures: guarded.report.findings,
       },
     });
   } catch (error: any) {
