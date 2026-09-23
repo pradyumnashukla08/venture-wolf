@@ -2,6 +2,8 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import { INVESTOR_QUESTIONS, INVESTOR_FAQ_QUESTIONS } from './investorQuestions.js';
+import { registryFrom } from '../provenance/registrySources.js';
+import { guardResponse, logReport } from '../provenance/aiGuard.js';
 
 dotenv.config();
 
@@ -97,6 +99,40 @@ function getNormalizedStageKey(stage: string): string {
   if (cleanStage.includes('series-b') || cleanStage.includes('series b')) return 'series-b';
   if (cleanStage.includes('series-a') || cleanStage.includes('series a') || cleanStage.includes('growth')) return 'series-a';
   return 'seed';
+}
+
+
+/**
+ * Check what Devang said against what the founder actually gave us.
+ *
+ * This persona is the most confident writer of numbers in the codebase — it is
+ * instructed to interrogate unit economics and "demand precise numbers", and a
+ * model told to be precise will supply precision it does not have. Questions
+ * and verdicts are prose, so they are guarded; the clarity and vector scores
+ * are the persona's assessment and are left alone.
+ *
+ * The founder's own answers are ingested as sources: a figure they said out
+ * loud in the session is theirs, and quoting it back is the entire point of the
+ * exercise.
+ */
+async function checkAgainstFounderFacts<T>(
+  label: string,
+  result: T,
+  documents: DocumentInput[],
+  texts: (string | undefined)[],
+): Promise<T> {
+  try {
+    const registry = await registryFrom({ texts, documents });
+    const guarded = guardResponse(result, registry);
+    logReport(label, guarded.report);
+    return guarded.value;
+  } catch (guardErr: any) {
+    // The guard is a check on the answer, not part of producing it. If it
+    // fails, the founder still gets their session; the failure is loud in the
+    // log rather than fatal in the request.
+    console.error('[provenance] Guard failed, returning unchecked response:', guardErr?.message);
+    return result;
+  }
 }
 
 export const startInvestorQA = async (
@@ -221,7 +257,13 @@ You MUST output a strict JSON object (no markdown formatting, no code blocks) ma
 }
 `;
 
-  return await executeMultimodalRequest(documents, promptText, buildDefaultStartResponse(stage, benchmark, isAcquisition));
+  const questions = await executeMultimodalRequest(
+    documents, promptText, buildDefaultStartResponse(stage, benchmark, isAcquisition),
+  );
+
+  return await checkAgainstFounderFacts(
+    `investor.start stage=${stage}`, questions, documents, [founderProfileContext],
+  );
 };
 
 export const evaluateInvestorVerdict = async (
@@ -362,7 +404,16 @@ You MUST output a strict JSON object (no markdown formatting, no code blocks) ma
 }
 `;
 
-  return await executeMultimodalRequest(documents, promptText, buildDefaultVerdictResponse(stage, benchmark, qaHistory));
+  const verdict = await executeMultimodalRequest(
+    documents, promptText, buildDefaultVerdictResponse(stage, benchmark, qaHistory),
+  );
+
+  return await checkAgainstFounderFacts(
+    `investor.verdict stage=${stage}`,
+    verdict,
+    documents,
+    [founderProfileContext, ...qaHistory.map((item) => item.answer)],
+  );
 };
 
 async function executeMultimodalRequest(

@@ -89,7 +89,23 @@ export class FactRegistry {
       // Register the scaled reading and the bare digits both: the founder may
       // write "5 Cr" and the model restate it as "5" in a sentence that already
       // says crore.
-      for (const value of new Set([scaled, base])) {
+      const readings = new Set([scaled, base]);
+
+      // A comma is a thousands separator in prose and a field separator in CSV,
+      // and the same characters mean both. `2026-01,500000` is a date column
+      // beside an MRR column, not one-and-a-half million — reading it as the
+      // latter loses the founder's actual figure and the guard then accuses the
+      // model of inventing it. So each comma-separated run is registered too.
+      // This widens what the guard accepts and never narrows it: the failure it
+      // prevents is a false accusation, which is the expensive kind here.
+      if (raw.includes(',')) {
+        for (const segment of raw.split(',')) {
+          const part = Number.parseFloat(segment);
+          if (Number.isFinite(part)) readings.add(part);
+        }
+      }
+
+      for (const value of readings) {
         const key = canonical(value);
         if (!this.#byCanonical.has(key)) {
           this.#byCanonical.set(key, { value, seenAs });

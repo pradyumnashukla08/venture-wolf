@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { startInvestorQA, evaluateInvestorVerdict, type DocumentInput } from '../services/ai/investorService.js';
-import { FactRegistry } from '../services/provenance/factRegistry.js';
+import { registryFrom } from '../services/provenance/registrySources.js';
 import { guardResponse, logReport } from '../services/provenance/aiGuard.js';
 
 const router = Router();
@@ -33,33 +33,6 @@ async function getFounderContext(startupId: string) {
   return JSON.stringify(contextObj, null, 2);
 }
 
-
-/**
- * Index the numbers the founder actually gave us, so the guard can tell a
- * quoted figure from an invented one.
- *
- * Only text sources can be indexed. A PDF pitch deck reaches Gemini as bytes
- * and is never turned into text on this side, so figures that appear only in a
- * PDF are invisible here and will be reported as unsupported. That is the main
- * reason GUARD_MODE defaults to `report`: the registry is incomplete by
- * construction until deck text extraction is wired in.
- */
-async function buildFactRegistry(
-  profileContext: string,
-  documents: { mimeType: string; localPath: string }[],
-): Promise<FactRegistry> {
-  const registry = new FactRegistry().ingest(profileContext);
-
-  for (const doc of documents) {
-    if (!doc.mimeType.startsWith('text/')) continue;
-    try {
-      registry.ingest(await fs.promises.readFile(doc.localPath, 'utf-8'));
-    } catch (readErr: any) {
-      console.warn('[provenance] Could not index', doc.localPath, readErr?.message);
-    }
-  }
-  return registry;
-}
 
 router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Request, res: Response): Promise<void> => {
   let rawDocuments: { type: string; mimeType: string; localPath: string }[] = [];
@@ -134,7 +107,10 @@ router.post('/', requireAuth, validate(evaluateRequestSchema), async (req: Reque
     // assessment and are deliberately left alone. In the default `report` mode
     // nothing is rewritten — findings are logged and returned so the guard can
     // be measured before it is allowed to withhold anything.
-    const factRegistry = await buildFactRegistry(founderProfileContext, rawDocuments);
+    const factRegistry = await registryFrom({
+      texts: [founderProfileContext],
+      documents: rawDocuments,
+    });
     const guarded = guardResponse(evaluation, factRegistry);
     logReport(`evaluate startup=${startupId}`, guarded.report);
     const checkedEvaluation = guarded.value;
