@@ -6,6 +6,7 @@ import { extractDataRoomContext } from '../services/ai/documentParser.js';
 import { injectAndExtractFinancials } from '../services/finance/excelInjector.js';
 import { requireAuth } from '../middleware/auth.js';
 import { traceAssumptions, FORECAST_DISCLOSURE } from '../services/provenance/financeProvenance.js';
+import { assessValuation, auditProposedValuation } from '../domain/valuation/assess.js';
 import { ZodError } from 'zod';
 
 const router = Router();
@@ -56,6 +57,24 @@ router.post('/forecast', requireAuth, (req: Request, res: Response, next: NextFu
           // they were corrected to. Shown, not hidden: the founder is entitled
           // to know where the system overruled the forecast.
           guardrailCorrections: corrections,
+          // The base-case valuation the model proposed, checked against the
+          // methods that can actually be run. It is audited rather than
+          // replaced: removing it would break the workbook and the client that
+          // reads it, and the honest intermediate step is to show the founder
+          // both the number and whether anything defensible supports it.
+          valuationAudit: (() => {
+            const startingMrr = aiAssumptions.Base?.initialMetric;
+            const assessment = assessValuation(
+              startingMrr ? { annualRevenue: startingMrr * 12 } : {},
+            );
+            return {
+              ...auditProposedValuation(aiAssumptions.Base?.estimatedValuation ?? 0, assessment),
+              methodsRun: assessment.kind === 'triangulated'
+                ? assessment.result.estimates.map((e) => e.method)
+                : assessment.ran,
+              missingInputs: assessment.missing,
+            };
+          })(),
           projections: executionResults.summaryData,
           downloadUrl: executionResults.downloadUrl,
           highRiskOfRuin
