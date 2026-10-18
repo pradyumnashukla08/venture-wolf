@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isInvestor() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'investor';
+    }
+
+    // users collection: Users can read/write their own profile
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isInvestor());
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // startups collection: Founders can read/write their own. Investors can read all.
+    match /startups/{startupId} {
+      allow read: if isAuthenticated() && (isOwner(startupId) || isInvestor());
+      allow write: if isAuthenticated() && isOwner(startupId);
+    }
+    
+    // profiles collection: Founders can read/write their own. Investors can read all.
+    match /profiles/{profileId} {
+      allow read: if isAuthenticated() && (isOwner(profileId) || isInvestor());
+      allow write: if isAuthenticated() && isOwner(profileId);
+    }
+    
+    // user_states collection: Strictly private to the user
+    match /user_states/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ai_evaluations collection: Only the owner or an investor can read
+    match /ai_evaluations/{evaluationId} {
+      allow read: if isAuthenticated() && (
+        resource.data.startup_id == request.auth.uid || isInvestor()
+      );
+      allow create, update: if isAuthenticated() && request.resource.data.startup_id == request.auth.uid;
+      allow delete: if false; // Evaluations are immutable records
+    }
+  }
+}

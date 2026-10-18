@@ -1,0 +1,132 @@
+import { z } from 'zod';
+import type { Request, Response, NextFunction } from 'express';
+
+// ─── Evaluate Endpoint Schema ───────────────────────────────────────────────
+
+/**
+ * Schema for POST /api/evaluate
+ * 
+ * Validates the incoming request body before any AI processing or
+ * database operations occur. Prevents malformed or malicious payloads
+ * from reaching the Gemini/Groq SDKs.
+ */
+export const evaluateRequestSchema = z.object({
+  stage: z
+    .string({ error: 'stage is required' })
+    .min(1, 'stage cannot be empty')
+    .refine(
+      (val) => ['pre-seed', 'preseed', 'seed', 'series-a', 'series-b', 'series a', 'series b'].includes(val.toLowerCase()),
+      { message: 'stage must be one of: Pre-Seed, Seed, Series-A, Series-B' }
+    ),
+  pitchDeckPath: z.string().optional(),
+  financialsPath: z.string().optional(),
+  documents: z
+    .array(
+      z.object({
+        type: z.string().min(1, 'document type is required'),
+        path: z.string().min(1, 'document path is required'),
+        format: z.string().optional(),
+      })
+    )
+    .optional()
+    .default([]),
+});
+
+export type EvaluateRequestBody = z.infer<typeof evaluateRequestSchema>;
+
+// ─── Generate Endpoint Schema ───────────────────────────────────────────────
+
+/**
+ * Schema for POST /api/generate
+ * 
+ * Validates AI Assist text generation requests. Enforces max length
+ * on the instruction field to prevent prompt injection attacks via
+ * oversized payloads.
+ */
+export const generateRequestSchema = z.object({
+  fieldLabel: z
+    .string({ error: 'fieldLabel is required' })
+    .min(1, 'fieldLabel cannot be empty')
+    .max(200, 'fieldLabel must be under 200 characters'),
+  context: z.record(z.string(), z.unknown()).optional().default({}),
+  instruction: z.string().max(2000, 'instruction must be under 2000 characters').optional(),
+});
+
+export type GenerateRequestBody = z.infer<typeof generateRequestSchema>;
+
+// ─── Pitch Evaluation Endpoint Schema ───────────────────────────────────────
+
+/**
+ * Schema for POST /api/evaluate/pitch
+ */
+export const pitchRequestSchema = z.object({
+  audioPath: z
+    .string({ error: 'audioPath is required' })
+    .min(1, 'audioPath cannot be empty'),
+});
+
+export type PitchRequestBody = z.infer<typeof pitchRequestSchema>;
+
+// ─── Investor & AI Endpoints Schemas ────────────────────────────────────────
+
+export const investorStartRequestSchema = z.object({
+  startupId: z.string().optional(),
+  stage: z.string().optional().default('Seed'),
+  mode: z.string().optional().default('fundraising'),
+  documents: z.array(z.any()).optional().default([]),
+});
+
+export const investorVerdictRequestSchema = z.object({
+  startupId: z.string().optional(),
+  stage: z.string().optional().default('Seed'),
+  mode: z.string().optional().default('fundraising'),
+  qaHistory: z.array(z.any()).optional().default([]),
+  documents: z.array(z.any()).optional().default([]),
+});
+
+export const askAiRequestSchema = z.object({
+  message: z.string().min(1),
+  evaluationContext: z.any(),
+  startupStage: z.string().min(1),
+});
+
+export const verifySprintSchema = z.object({
+  sprintTitle: z.string().min(1),
+  sprintDesc: z.string().min(1),
+  proofText: z.string().min(1),
+  proofImageBase64: z.string().optional(),
+});
+
+// ─── Reusable Validation Middleware Factory ─────────────────────────────────
+
+/**
+ * Creates Express middleware that validates req.body against a Zod schema.
+ * 
+ * On validation failure, returns a 400 response with structured error details.
+ * On success, replaces req.body with the parsed (and default-filled) data
+ * so downstream handlers always receive clean, typed data.
+ * 
+ * Usage:
+ *   router.post('/', requireAuth, validate(evaluateRequestSchema), handler);
+ */
+export const validate = <T extends z.ZodTypeAny>(schema: T) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.body);
+
+    if (!result.success) {
+      const errors = result.error.flatten();
+      res.status(400).json({
+        error: 'Invalid request body',
+        details: {
+          fieldErrors: errors.fieldErrors,
+          formErrors: errors.formErrors,
+        },
+      });
+      return;
+    }
+
+    // Replace req.body with the parsed, type-safe data (includes defaults)
+    req.body = result.data;
+    next();
+  };
+};

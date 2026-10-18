@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "4e6f66e2-2f6b-4bad-95bd-bb14978d963e"
+      }
+    },
+    "android": {
+      "package": "com.waoufund.pitchymonorepo"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+rules_version = '2';
+
+// Craft rules based on data in your Firestore database
+// allow write: if firestore.get(
+//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isInvestor() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'investor';
+    }
+
+    // data_room paths: data_room/{userId}/...
+    match /data_room/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isInvestor());
+      allow write: if isAuthenticated() && isOwner(userId) && request.resource.size < 15 * 1024 * 1024; // 15MB limit
+    }
+
+    // profiles paths: profiles/{userId}/...
+    match /profiles/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated(); // Profile images can be seen by any logged-in user
+      allow write: if isAuthenticated() && isOwner(userId) && request.resource.size < 5 * 1024 * 1024; // 5MB limit
+    }
+    
+    // pitches paths: pitches/{userId}/...
+    match /pitches/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isInvestor());
+      allow write: if isAuthenticated() && isOwner(userId) && request.resource.size < 50 * 1024 * 1024; // 50MB limit
+    }
+
+    // Default deny for everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
