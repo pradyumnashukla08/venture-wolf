@@ -78,9 +78,15 @@ app.use(['/api/generate', '/generate'], ipAiLimiter, generateRoute);
 app.use(['/api/finance', '/finance'], ipAiLimiter, financeRouter);
 app.use(['/api/readiness', '/readiness'], readinessRouter);
 
-// Root endpoint for Uptime monitors
-app.get('/', (req, res) => {
-  res.status(200).send('WaouFund Backend API is online.');
+// Root and API status endpoints
+app.get(['/', '/api'], (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    service: 'WaouFund Backend Cloud API',
+    version: '1.0.0',
+    webApp: 'https://project-f62f4191-7560-45ab-8f3.web.app',
+    message: 'WaouFund Backend API is running and ready for requests.',
+  });
 });
 
 // Health check endpoint
